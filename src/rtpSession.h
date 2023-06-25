@@ -1,0 +1,41 @@
+#ifndef __RTP_SESSION__
+#define __RTP_SESSION__
+#include "ctrlProtocol.h"
+#include <iostream>
+extern "C"{
+    #include <netinet/in.h>
+}
+using namespace std;
+
+typedef enum{
+    PCM,
+    H264
+}RtpSessionType;
+class RtpSession{
+public:
+    RtpSession(int localPort, RtpSessionType type, FrameCallback readAudioData = nullptr);
+    ~RtpSession();
+    bool Start();
+    bool Stop();
+    void SetRemoteAddr(const string& dstAddr, int dstPort);
+    void BuildRtpAndSend(const uint8_t* payload, size_t payloadSize);
+private:
+    void h264_Frame_RtpSend(const uint8_t* frameData, int frameSize);
+    void h264_Frag_fu_a(uint8_t *nal, int fragsize, bool mark);
+    void run();
+    string m_remote_addr;
+    int m_remote_port;
+    int m_local_port;
+    RtpSessionType m_session_type;
+    FrameCallback m_audio_data_callback;
+    int m_socket;
+    sockaddr_in m_destinationAddr;
+
+    uint16_t m_sequenceNumber;
+    uint32_t m_timestamp;
+    uint8_t m_payloadType;
+    bool m_mark;
+};
+
+
+#endif

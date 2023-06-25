@@ -1,0 +1,24 @@
+{
+    "sip_config":{
+        "domain_name":"192.168.16.100:5060", //sip服务器域名
+        "user_name":"1002",                  //用户名
+        "password":"1234",                   //密码
+        "reg_expires":1800,                  //注册有效期
+        "reg_period":30,                     //注册周期
+        "sip_outcall_account":[              //sip外呼分机列表 最多支持6个
+        {
+            "account":"7001"
+        },
+        {
+            "account":"7002"
+        }
+        ]
+    },
+
+    "net_config":{
+        "ip":"192.168.16.100",      //IP地址
+        "gateway":"192.168.16.1",   //网关地址
+        "netmask":"255.255.255.0",  //子网掩码
+        "DNS":"8.8.8.8"             //DNS地址
+    }
+}
