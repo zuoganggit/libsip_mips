@@ -3,10 +3,10 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <memory.h>
 
 #include "ctrlProtocol.h"
 #include "T21_Def.h"
-
 
 
 CtrlProtocol::CtrlProtocol(){
@@ -38,7 +38,33 @@ void CtrlProtocol::Init(){
 }
 
 void CtrlProtocol::OpenMutex(int channel){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = DB_CMD_DOControl_Request;
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = 0x12;
+    t21_data.TotalSegment = 0x01;
+    t21_data.SubSegment = 0x01;
+    t21_data.SegmentFlag = 0x01;
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
 
+    T21_OpenMutex_Req_Payload payload = {(uint32_t)channel};
+    int buffer_size = sizeof(T21_OpenMutex_Req_Payload) + sizeof(T21_Data);
+
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_OpenMutex_Req_Payload));
+    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
+        cout<<"OpenMutex request fail"<<endl;
+    }else{
+        cout<<"OpenMutex request "<<endl;
+    }
+}
+
+
+void CtrlProtocol::CallNotify(int acount_index){
+    
 }
 
 void CtrlProtocol::OpenAudioChannel(){
@@ -53,19 +79,88 @@ void CtrlProtocol::OpenAudioChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-
+    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_AUDIO_Capture};
+    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
+        cout<<"OpenAudioChannel request fail"<<endl;
+    }else{
+        cout<<"OpenAudioChannel request "<<endl;
+    }
 }
 
 void CtrlProtocol::OpenVideoChannel(){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = DB_CMD_Play_Request;
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = 0x12;
+    t21_data.TotalSegment = 0x01;
+    t21_data.SubSegment = 0x01;
+    t21_data.SegmentFlag = 0x01;
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
 
+    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_VIDEO};
+    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
+        cout<<"OpenVideoChannel request fail"<<endl;
+    }else{
+        cout<<"OpenVideoChannel request "<<endl;
+    }
 }
 
 void CtrlProtocol::CloseAudioChannel(){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = DB_CMD_Stop_Request;
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = 0x12;
+    t21_data.TotalSegment = 0x01;
+    t21_data.SubSegment = 0x01;
+    t21_data.SegmentFlag = 0x01;
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
 
+    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_AUDIO_Capture};
+    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
+        cout<<"CloseAudioChannel request fail"<<endl;
+    }else{
+        cout<<"CloseAudioChannel request "<<endl;
+    }
 }
 
 void CtrlProtocol::CloseVideoChannel(){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = DB_CMD_Stop_Request;
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = 0x12;
+    t21_data.TotalSegment = 0x01;
+    t21_data.SubSegment = 0x01;
+    t21_data.SegmentFlag = 0x01;
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
 
+    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_VIDEO};
+    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
+        cout<<"CloseVideoChannel request fail"<<endl;
+    }else{
+        cout<<"CloseVideoChannel request "<<endl;
+    }
 }
 
 

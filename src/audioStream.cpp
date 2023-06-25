@@ -28,6 +28,7 @@ void AudioStream::Open(FrameCallback callback){
     if(!m_opening){
         m_opening = true;
         //send open Audio Stream to T21
+        CtrlProtocol::GetInstance()->OpenAudioChannel();
     }
     else{
         Close();
@@ -45,6 +46,7 @@ void AudioStream::Close(){
     if(!m_opening) return;
 
     //send close Audio Stream to T21
+    CtrlProtocol::GetInstance()->CloseAudioChannel();
     m_opening = false;
     m_stream_run_future.wait();
     m_frame_callback = nullptr;

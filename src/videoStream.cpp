@@ -23,6 +23,7 @@ void VideoStream::Open(FrameCallback callback){
     if(!m_opening){
         m_opening = true;
         //send open Video Stream to T21
+        CtrlProtocol::GetInstance()->OpenVideoChannel();
     }
     else{
         Close();
@@ -41,6 +42,7 @@ void VideoStream::Close(){
     if(!m_opening) return;
 
     //send close Audio Stream to T21
+    CtrlProtocol::GetInstance()->CloseVideoChannel();
     m_opening = false;
     m_stream_run_future.wait();
     m_frame_callback = nullptr;

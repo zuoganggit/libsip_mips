@@ -11,15 +11,15 @@
 #define AUDIO_REMOTE_PORT 15603
 
 typedef struct{
-   uint8_t GroupCode;
-   uint16_t CommandID;
-   uint8_t Version;
-   uint32_t CommandFlag;
-   uint16_t TotalSegment;
-   uint16_t SubSegment;
-   uint16_t SegmentFlag;
-   uint16_t Reserved1;
-   uint32_t Reserved2;
+   uint8_t GroupCode:8;
+   uint16_t CommandID:16;
+   uint8_t Version:8;
+   uint32_t CommandFlag:32;
+   uint16_t TotalSegment:16;
+   uint16_t SubSegment:16;
+   uint16_t SegmentFlag:16;
+   uint16_t Reserved1:16;
+   uint32_t Reserved2:32;
    uint8_t Payload[0];
 }T21_Data;
 
@@ -105,12 +105,12 @@ typedef struct{
 //发送音频视频数据paylaod
 //CommandID: DB_CMD_Send_Media_Request_EX2 = 0x20
 typedef struct{
-    uint32_t	m_channelid;	// 设备通道ID
-    uint32_t	m_sequence;	// 音视频数据总分片索引,第一个分片开始从1依次递增
-    uint32_t	m_iskeyframe;	// 是否为关键帧
-    uint8_t	    m_reseverd0;	// 保留字段，必须置0
-    uint16_t	m_reseverd1;	// 保留字段，必须置0
-    uint32_t	m_medialength;	// 音视频数据长度
+    uint32_t	m_channelid:32;	// 设备通道ID
+    uint32_t	m_sequence:32;	// 音视频数据总分片索引,第一个分片开始从1依次递增
+    uint32_t	m_iskeyframe:32;	// 是否为关键帧
+    uint8_t	    m_reseverd0:8;	// 保留字段，必须置0
+    uint16_t	m_reseverd1:16;	// 保留字段，必须置0
+    uint32_t	m_medialength:32;	// 音视频数据长度
     uint8_t	    m_mediadata[0];	// 音视频数据
 }T21_Send_Media_Req_Payload;
 //CommandID: DB_CMD_Send_Media_Result = 0x06

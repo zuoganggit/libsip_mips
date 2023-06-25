@@ -4,6 +4,7 @@
 #include "audioStream.h"
 #include "videoStream.h"
 #include "sipSession.h"
+#include "ctrlProtocol.h"
 
 int sip_local_port = 6060;
 SipSession::SipSession(const string &sipServerDomain,
@@ -326,6 +327,6 @@ int SipSession::TerminateOutgoing(){
     return 0;
 }
 
-void SipSession::openMutexCtl(){
-
+void SipSession::openMutexCtl(int channel){
+    CtrlProtocol::GetInstance()->OpenMutex(channel);
 }

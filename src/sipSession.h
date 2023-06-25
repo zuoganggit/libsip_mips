@@ -21,7 +21,7 @@ public:
     int CallOutgoing(const string& toUser);
     int TerminateOutgoing();
 private:
-    void openMutexCtl();
+    void openMutexCtl(int channel);
     void sipRun();
     void callAnswered(eXosip_event_t *event); 
     void callByed(eXosip_event_t *event);

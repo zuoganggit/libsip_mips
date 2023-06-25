@@ -26,7 +26,7 @@ public:
     void OpenVideoChannel();
     void CloseAudioChannel();
     void CloseVideoChannel();
-
+    void CallNotify(int acount_index);
     void Init();
 private:
     bool openUdpSocket();
