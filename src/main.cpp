@@ -45,19 +45,28 @@ void SignalHandler(int signal)
 }
 
 int main(int argc, char ** argv){
-
-    if (argc == 4){
-        sip_server_domain = argv[1];
-        user_name = argv[2];
-        password = argv[3];
-    }
     std::signal(SIGINT, SignalHandler);
     std::signal(SIGTERM, SignalHandler);
     std::signal(SIGHUP, SignalHandler);
     
+    if (!ConfigServer::GetInstance()->GetSipDomain(sip_server_domain)){
+        cerr<<"GetSipDomain  fail"<<endl;
+        return 0;
+    }
+
+    if (!ConfigServer::GetInstance()->GetUserName(user_name)){
+        cerr<<"GetUserName  fail"<<endl;
+        return 0;
+    }
+
+    if (!ConfigServer::GetInstance()->GetPassword(password)){
+        cerr<<"GetPassword  fail"<<endl;
+        return 0;
+    }
+
     CtrlProtocol::GetInstance();
 
-    auto sipSessionPtr = make_shared<SipSession>(sip_server_domain, 
+    auto sipSessionPtr = SipSession::GetInstance(sip_server_domain, 
         user_name, password);
 
     if(!sipSessionPtr->Start()){
@@ -66,11 +75,13 @@ int main(int argc, char ** argv){
     }
 
 
-    cout<<"hello world"<<endl;
-
+    cout<<"sipper start ok"<<endl;
+    // this_thread::sleep_for(chrono::seconds(5));
+    // sipSessionPtr->CallOutgoing("1004");
+    // this_thread::sleep_for(chrono::seconds(10));
+    // sipSessionPtr->TerminateCalling();
     // this_thread::sleep_for(chrono::seconds(5));
     // sipSessionPtr->CallOutgoing("1003");
-
     WaitForSignal();
     return 0;
 }

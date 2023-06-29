@@ -5,9 +5,9 @@
 #include <unistd.h>
 #include <memory.h>
 
+#include "configServer.h"
 #include "ctrlProtocol.h"
-#include "T21_Def.h"
-
+#include "sipSession.h"
 
 CtrlProtocol::CtrlProtocol(){
     m_t21_socket = -1;
@@ -55,16 +55,60 @@ void CtrlProtocol::OpenMutex(int channel){
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_OpenMutex_Req_Payload));
-    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
-        cout<<"OpenMutex request fail"<<endl;
+    if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
+        cout<<"OpenMutex request send fail"<<endl;
     }else{
-        cout<<"OpenMutex request "<<endl;
+        cout<<"OpenMutex request send "<<endl;
     }
+    delete[] buffer;
 }
 
 
-void CtrlProtocol::CallNotify(int acount_index){
-    
+void CtrlProtocol::CallOutgoing(T21_Data *data){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = DB_CMD_Call_Result;
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = 0x12;
+    t21_data.TotalSegment = 0x01;
+    t21_data.SubSegment = 0x01;
+    t21_data.SegmentFlag = 0x01;
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
+    int buffer_size = sizeof(T21_Call_Res_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    T21_Call_Res_Payload resPayload = {(uint8_t)DB_Result_Failed};
+
+    T21_Call_Req_Payload *payload = (T21_Call_Req_Payload *)data->Payload;
+    if(payload != nullptr){
+        int acount_index = payload->m_DIType;
+        string dst_user;
+        if(ConfigServer::GetInstance()->GetOutAccount(acount_index, dst_user)){
+            if(SipSession::GetInstance()->CallOutgoing(dst_user)){
+                resPayload.m_result = DB_Result_Success;
+            }else{
+                resPayload.m_result = DB_Result_Talking;
+            }
+        }else{
+            cerr<<"CallNotify GetOutAccount fail index "<<acount_index<<endl;
+        }
+    }else{
+        cerr<<"CallNotify not found T21_Call_Req_Payload "<<endl;
+    }
+
+    memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_Call_Res_Payload));
+    if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
+        cout<<"T21_Call_Res_Payload send fail"<<endl;
+    }else{
+        cout<<"T21_Call_Res_Payload send m_result "<< resPayload.m_result << endl;
+    }
+    delete[] buffer;
+}
+
+
+void CtrlProtocol::StopOutgoing(T21_Data *data){
+    SipSession::GetInstance()->TerminateCalling();
 }
 
 void CtrlProtocol::OpenAudioChannel(){
@@ -79,16 +123,22 @@ void CtrlProtocol::OpenAudioChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_AUDIO_Capture};
+    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_AUDIO_Capture};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
-    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
-        cout<<"OpenAudioChannel request fail"<<endl;
-    }else{
-        cout<<"OpenAudioChannel request "<<endl;
-    }
+
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+
+
+    // int ret = send(m_t21_socket, buffer, buffer_size, 0);
+    // if (ret <= 0){
+    //     cout<<"OpenAudioChannel request fail ret is "<< ret <<endl;
+    // }else{
+    //     cout<<"OpenAudioChannel request "<<endl;
+    // }
+    delete[] buffer;
 }
 
 void CtrlProtocol::OpenVideoChannel(){
@@ -103,16 +153,21 @@ void CtrlProtocol::OpenVideoChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_VIDEO};
+    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_VIDEO};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
-    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
-        cout<<"OpenVideoChannel request fail"<<endl;
-    }else{
-        cout<<"OpenVideoChannel request "<<endl;
-    }
+
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+
+    // int ret = send(m_t21_socket, buffer, buffer_size, 0);
+    // if (ret <= 0){
+    //     cout<<"OpenVideoChannel request fail ret is "<< ret <<endl;
+    // }else{
+    //     cout<<"OpenVideoChannel request "<<endl;
+    // }
+    delete[] buffer;
 }
 
 void CtrlProtocol::CloseAudioChannel(){
@@ -127,16 +182,13 @@ void CtrlProtocol::CloseAudioChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_AUDIO_Capture};
+    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_AUDIO_Capture};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
-    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
-        cout<<"CloseAudioChannel request fail"<<endl;
-    }else{
-        cout<<"CloseAudioChannel request "<<endl;
-    }
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    delete[] buffer;
 }
 
 void CtrlProtocol::CloseVideoChannel(){
@@ -156,17 +208,20 @@ void CtrlProtocol::CloseVideoChannel(){
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
-    if (0 == send(m_t21_socket, buffer, buffer_size, 0)){
-        cout<<"CloseVideoChannel request fail"<<endl;
-    }else{
-        cout<<"CloseVideoChannel request "<<endl;
-    }
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    // if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
+    //     cout<<"CloseVideoChannel request fail"<<endl;
+    // }else{
+    //     cout<<"CloseVideoChannel request "<<endl;
+    // }
+
+    delete[] buffer;
 }
 
 
 bool CtrlProtocol::openUdpSocket(){
-    int sock = socket(AF_INET, SOCK_DGRAM, 0);
-    if (sock < 0) {
+    m_t21_socket = socket(AF_INET, SOCK_DGRAM, 0);
+    if (m_t21_socket < 0) {
         std::cerr << "Failed to create socket" << std::endl;
         return false;
     }
@@ -174,16 +229,18 @@ bool CtrlProtocol::openUdpSocket(){
     // 设置本地地址
     sockaddr_in localAddr{};
     localAddr.sin_family = AF_INET;
-    localAddr.sin_port = htons(T21_PORT);
-    localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    localAddr.sin_port = htons(LOCAL_PORT);
+    // localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &(localAddr.sin_addr)) <= 0) {
+        std::cerr << "Invalid  IP address" << std::endl;
+    }
 
     // 绑定本地地址
-    if (bind(sock, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
+    if (bind(m_t21_socket, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
         std::cerr << "Failed to bind socket to local address" << std::endl;
         return false;
     }
-
-    m_t21_socket = sock;
 
     // 设置阻塞超时时间
     timeval timeout{};
@@ -194,13 +251,10 @@ bool CtrlProtocol::openUdpSocket(){
         std::cerr << "Failed to set receive timeout" << std::endl;
     }
 
-    sockaddr_in destinationAddr{};
-    destinationAddr.sin_family = AF_INET;
-    destinationAddr.sin_port = htons(T21_PORT);
-    if (inet_pton(AF_INET, "127.0.0.1", &(destinationAddr.sin_addr)) <= 0) {
+    m_destinationAddr.sin_family = AF_INET;
+    m_destinationAddr.sin_port = htons(T21_PORT);
+    if (inet_pton(AF_INET, REMOTE_ADDR, &(m_destinationAddr.sin_addr)) <= 0) {
         std::cerr << "Invalid destination IP address" << std::endl;
-    }else{
-        m_destinationAddr = destinationAddr;
     }
 
     return true;
@@ -209,6 +263,35 @@ bool CtrlProtocol::openUdpSocket(){
 void CtrlProtocol::closeUdpSocket(){
     if(m_t21_socket > 0){
         close(m_t21_socket);
+    }
+}
+
+
+void CtrlProtocol::t21CmdHandle(T21_Data *data){
+    if (data == nullptr){
+        return;
+    }
+    switch (data->CommandID){
+    case DB_CMD_Play_Result:
+        break;
+    case DB_CMD_Stop_Result:
+        break;
+    case DB_CMD_Send_Media_Result:
+        break;
+    case DB_CMD_DOControl_Result:
+        break;
+    case DB_CMD_Send_Media_Request_EX2:
+        break;
+    case DB_CMD_Query_RegStatus_Result:
+        break;
+    case DB_CMD_Call_Result:
+        CallOutgoing(data);
+        break;
+    case DB_CMD_HangUp_Request:
+        StopOutgoing(data);
+        break;
+    default:
+        break;
     }
 }
 
@@ -228,6 +311,8 @@ void CtrlProtocol::run(){
               data->GroupCode, data->CommandID, data->Version, data->CommandFlag,
               data->TotalSegment, data->SubSegment, data->SegmentFlag,
               data->Reserved1, data->Reserved2, data->Payload);
+            
+            t21CmdHandle(data);
         }
 
         // printf("continue   recv  t21 data bytes %d\n",bytes);

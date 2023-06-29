@@ -1,12 +1,22 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <string.h>
+#include <unordered_map>
+#include <sstream>
 #include "audioStream.h"
 #include "videoStream.h"
 #include "sipSession.h"
 #include "ctrlProtocol.h"
 
-int sip_local_port = 6060;
+int sip_local_port = 5060;
+
+
+shared_ptr<SipSession> SipSession::GetInstance(const string& sipServerDomain,
+    const string& userName,  const string& password){
+    static auto sipPtr = make_shared<SipSession>(sipServerDomain, userName, password);
+    return sipPtr;
+}
+
 SipSession::SipSession(const string &sipServerDomain,
                        const string &userName, const string &password)
 {
@@ -17,6 +27,7 @@ SipSession::SipSession(const string &sipServerDomain,
     m_exited = false;
     m_audio_rtp_local_port = 4002;
     m_video_rtp_local_port = 5002;
+    m_is_calling = false;
 }
 
 SipSession::~SipSession()
@@ -58,8 +69,8 @@ bool SipSession::Start(){
     }
 
 
-    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, PCM);
-    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, H264);
+    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, PCM, 0);
+    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, H264, 99);
 
     m_sip_run_future = std::async(std::launch::async, [this](){
         this->sipRun();
@@ -188,13 +199,29 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
         osip_message_set_content_type (answer, "application/sdp");
 
         eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
-
+        m_is_calling = true;
     }
 }
 
 
-void SipSession::sipRun(){
+std::unordered_map<std::string, std::string> parseKeyValuePairs(const std::string& input) {
+    std::unordered_map<std::string, std::string> keyValuePairs;
+    std::istringstream iss(input);
+
+    std::string line;
+    while (std::getline(iss, line)) {
+        std::istringstream lineStream(line);
+        std::string key, value;
+        if (std::getline(lineStream, key, '=') && std::getline(lineStream, value)) {
+            keyValuePairs[key] = value;
+        }
+    }
+
+    return keyValuePairs;
+}
+
     osip_message_t *reg = nullptr;
+void SipSession::sipRun(){
     int rid = 0;    
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
     string to = "sip:" + m_sip_server_domain;
@@ -202,6 +229,7 @@ void SipSession::sipRun(){
     cout<<"prepare register from "<<from << " to "<< to<<endl;
 
     uint16_t tt = 0;
+    int open_mutex_channel = -1;
     while(!m_exited){
         if(tt % 30 == 0){
             eXosip_lock(m_context_eXosip);
@@ -221,11 +249,12 @@ void SipSession::sipRun(){
 
         tt++;
         osip_message_t *answer = NULL;
+        osip_body *body = nullptr;
         eXosip_event_t *event = eXosip_event_wait(m_context_eXosip, 1, 0);
         if(event){
             eXosip_lock(m_context_eXosip);
             eXosip_automatic_action(m_context_eXosip);
-            cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+            // cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
 
             switch(event->type){
                 case EXOSIP_REGISTRATION_SUCCESS:
@@ -248,6 +277,22 @@ void SipSession::sipRun(){
                 case EXOSIP_CALL_REQUESTFAILURE:
                     break;
                 case EXOSIP_CALL_MESSAGE_NEW:
+                    // osip_message_to_str(event->request, &message_str, &message_size);
+                    osip_message_get_body(event->request, 0, &body);
+                    if(body){
+                        unordered_map<string, string> keyValuePairs = parseKeyValuePairs(body->body);
+                        if (keyValuePairs.count("Signal") > 0) {
+                            string signalValue = keyValuePairs["Signal"];
+
+                            if(signalValue.find("#") != string::npos && open_mutex_channel > 0){
+                                printf("open mutex  channel %d\n", open_mutex_channel);
+                                CtrlProtocol::GetInstance()->OpenMutex(open_mutex_channel);
+                                open_mutex_channel = 0;
+                            }else{
+                                open_mutex_channel = std::atoi(signalValue.c_str());
+                            }                            
+                        }
+                    }
                     break;
                 case EXOSIP_CALL_PROCEEDING:
                     break;
@@ -258,6 +303,7 @@ void SipSession::sipRun(){
                     if(event->did == m_call_did){
                         AudioStream::GetInstance()->Close();
                         VideoStream::GetInstance()->Close();
+                        m_is_calling = false;
                     }
                     break;
                 default:
@@ -276,6 +322,10 @@ bool SipSession::Stop(){
 }
 
 int SipSession::CallOutgoing(const string &toUser){
+    if(m_is_calling){
+        cerr<<"is calling ,please close call"<<endl;
+        return -1;
+    }
     if(!m_exited){
         osip_message_t *invite;
         int cid;
@@ -322,8 +372,13 @@ int SipSession::CallOutgoing(const string &toUser){
     }
     return 0;
 }
-int SipSession::TerminateOutgoing(){
-    //eXosip_call_terminate(struct eXosip_t *excontext, int cid, int did)
+int SipSession::TerminateCalling(){
+    eXosip_lock(m_context_eXosip);
+    eXosip_call_terminate(m_context_eXosip, m_call_cid, m_call_did);
+    eXosip_unlock(m_context_eXosip);
+    AudioStream::GetInstance()->Close();
+    VideoStream::GetInstance()->Close();
+    m_is_calling = false;
     return 0;
 }
 

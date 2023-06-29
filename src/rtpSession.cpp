@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include "rtpSession.h"
+#include "audioStream.h"
 extern "C"{
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -61,7 +62,7 @@ shared_ptr<Buffer> PackRTPPacket(uint16_t sequenceNumber, uint32_t timestamp, bo
 
 
 
-RtpSession::RtpSession(int localPort, RtpSessionType type, FrameCallback readAudioData){
+RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, FrameCallback readAudioData){
     m_remote_port = 0;
     m_local_port= localPort;
     m_audio_data_callback = readAudioData;
@@ -71,16 +72,16 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, FrameCallback readAud
     m_timestamp = 0;
     m_mark = true;
     if(type == PCM){
-        m_payloadType = 0;
+        m_payloadType = payloadType;
     }else{
-        m_payloadType = 99;
+        m_payloadType = payloadType;
         m_timestamp = 6000;
     }
     
     Start();
 }
 RtpSession::~RtpSession(){
-
+    Stop();
 }
 bool RtpSession::Start(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -103,6 +104,9 @@ bool RtpSession::Start(){
 
     m_socket = sock;
 
+    m_run_future = std::async(std::launch::async, [this](){
+        this->run();
+    });
     return true;
 }
 bool RtpSession::Stop(){
@@ -110,7 +114,8 @@ bool RtpSession::Stop(){
         close(m_socket);
         m_socket = -1;
     }
-    
+
+    m_run_future.wait();
     return true;
 }
 void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
@@ -243,6 +248,59 @@ void RtpSession::BuildRtpAndSend(
     }
 }
 
-void RtpSession::run(){
 
+
+
+struct RTPHeader {
+    uint16_t version : 2;
+    uint16_t padding : 1;
+    uint16_t extension : 1;
+    uint16_t csrcCount : 4;
+    uint16_t marker : 1;
+    uint16_t payloadType : 7;
+    uint16_t sequenceNumber;
+    uint32_t timestamp;
+    uint32_t ssrc;
+};
+
+void RtpSession::run(){
+    //recv audio rtp data
+    if(m_session_type == PCM){
+        int buffer_size = 1550;
+        uint8_t buffer[buffer_size] = {0};
+        struct sockaddr_in remoteAddr{};
+        socklen_t addrLen = sizeof(remoteAddr);
+
+        // 设置阻塞超时时间
+        timeval timeout{};
+        timeout.tv_sec = 1;  // 设置超时时间为1秒
+        timeout.tv_usec = 0;
+        
+        if (setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout)) < 0) {
+            std::cerr << "Failed to set receive timeout" << std::endl;
+        }
+        while(m_socket > 0){
+            ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
+            // if (bytesRead < 0) {
+            //     std::cerr << "Failed to receive data" << std::endl;
+            //     // break;
+            // }
+
+            // 解析RTP头部
+            if (bytesRead > 0 && bytesRead >= sizeof(RTPHeader)) {
+                // cout<<"recv rtp size "<<bytesRead<<endl;
+                RTPHeader* rtpHeader = reinterpret_cast<RTPHeader*>(buffer);
+
+                // 根据需要访问RTP头部字段
+                uint16_t payloadType = ntohs(rtpHeader->payloadType);
+
+                // 计算负载内容的起始位置
+                uint8_t* payload = buffer + sizeof(RTPHeader);
+                if(rtpHeader->payloadType != m_payloadType){
+                    cout<<"payloadType "<<rtpHeader->payloadType<<endl;
+                }
+                AudioStream::GetInstance()->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
+            }
+        }
+    }
 }

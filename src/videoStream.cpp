@@ -1,14 +1,23 @@
 #include "videoStream.h"
 #include "T21_Def.h"
-
+extern "C"{
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+}
 
 VideoStream::VideoStream(int t21port){
     m_opening = false;
-    m_t21_port = t21port;
     m_frame_callback = nullptr;
+    m_socket = 0;
+    Init();
 }
 VideoStream::~VideoStream(){
     Close();
+    if(m_socket > 0){
+        close(m_socket);
+    }
 }
 
 shared_ptr<VideoStream> VideoStream::GetInstance(int t21port){
@@ -16,6 +25,36 @@ shared_ptr<VideoStream> VideoStream::GetInstance(int t21port){
     return viedeo_ptr;
 }
 bool VideoStream::Init(){
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sock < 0) {
+        std::cerr << "Failed to create socket" << std::endl;
+        return false;
+    }
+
+    // 设置本地地址
+    sockaddr_in localAddr{};
+    localAddr.sin_family = AF_INET;
+    localAddr.sin_port = htons(VIDEO_LOCAL_PORT);
+    // localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (inet_pton(AF_INET, "127.0.0.1", &(localAddr.sin_addr)) <= 0) {
+        std::cerr << "Invalid  IP address" << std::endl;
+    }
+    // 绑定本地地址
+    if (bind(sock, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
+        std::cerr << "AudioStream Failed to bind socket to local address port " << VIDEO_LOCAL_PORT<<endl;
+        return false;
+    }
+
+    m_socket = sock;
+    // 设置阻塞超时时间
+    timeval timeout{};
+    timeout.tv_sec = 1;  // 设置超时时间为1秒
+    timeout.tv_usec = 0;
+
+    if (setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout)) < 0) {
+        std::cerr << "Failed to set receive timeout" << std::endl;
+    }
 
     return true;
 }
@@ -90,7 +129,6 @@ bool getNextNalu(uint8_t*& naluData, int& naluSize) {
             }
         }
 
-        // 判断是否为 NALU 起始码
         nalBuffer.push_back(byte);
         if (nalBuffer.size() >= 4) {
             // 判断是否为 NALU 起始码
@@ -131,7 +169,7 @@ void testSendH264File(FrameCallback callback){
                 if(frameBuffer.size() > 0){
                     callback((uint8_t *)frameBuffer.data(), frameBuffer.size());
                     frameBuffer.clear();
-                    this_thread::sleep_for(chrono::milliseconds(66));
+                    this_thread::sleep_for(chrono::milliseconds(64));
                 }
             }
 
@@ -153,7 +191,7 @@ void testSendH264File(FrameCallback callback){
 }
 
 
-void VideoStream::run(){
+void VideoStream::run_new(){
     cout<<"VideoStream::run  start"<<endl;
     while(m_opening){
         if(m_frame_callback != nullptr){
@@ -168,4 +206,76 @@ void VideoStream::run(){
         delete inputFile;
         inputFile = nullptr;
     }
+}
+
+
+void VideoStream::run(){
+    //接收视频帧数据，并回调到上层
+    int buffer_size = 1550;
+    uint8_t buffer[buffer_size] = {0};
+    struct sockaddr_in remoteAddr{};
+    socklen_t addrLen = sizeof(remoteAddr);
+    vector<uint8_t> frame_buffer;
+    int max_frame_size = 2*1024*1024;
+
+    auto frame_handle = [=](vector<uint8_t>& frame_buffer, uint8_t* data, int size, int seq){
+        if(seq == 1){
+            if(frame_buffer.size() > 0 && frame_buffer.size() <= max_frame_size){
+                this->m_frame_callback(frame_buffer.data(), frame_buffer.size());
+            }
+            frame_buffer.clear();
+        }else{
+            if(frame_buffer.size() > max_frame_size){
+                cout << "frame_size too big "<<frame_buffer.size()<<endl;
+                return;
+            }
+            for(int i = 0; i < size; i++){
+                frame_buffer.push_back(data[i]);
+            }
+            
+        }
+    };
+    while(m_opening){
+        ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
+        T21_Data* t_data = (T21_Data*)buffer;
+
+        if(bytesRead > 0 && bytesRead > sizeof(T21_Data)){
+            if(t_data->CommandID == DB_CMD_Send_Media_Request_EX){
+                T21_Send_Media_ReqEx_Payload *t21payload = (T21_Send_Media_ReqEx_Payload *)t_data->Payload;
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + t21payload->m_medialength){
+                   frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                }
+            }else if(t_data->CommandID == DB_CMD_Send_Media_Request){
+                T21_Send_Media_Req_Payload *t21payload = (T21_Send_Media_Req_Payload *)t_data->Payload;
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_Req_Payload) + t21payload->m_medialength){
+                    frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                }
+            }else if(t_data->CommandID == DB_CMD_Send_Media_Request_EX2){
+                T21_Send_Media_ReqEx2_Payload *t21payload = (T21_Send_Media_ReqEx2_Payload *)t_data->Payload;
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx2_Payload) + t21payload->m_medialength){
+                    frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                }
+
+                T21_Data t21_data = {0};
+                t21_data.GroupCode = 0xDB;
+                t21_data.CommandID = DB_CMD_Send_Media_Result;
+                t21_data.Version = 0x01;
+                t21_data.CommandFlag = 0x12;
+                t21_data.TotalSegment = 0x01;
+                t21_data.SubSegment = 0x01;
+                t21_data.SegmentFlag = 0x01;
+                t21_data.Reserved1 = 0;
+                t21_data.Reserved2 = 0;
+                T21_Send_Media_Res_Payload res_payload = {t21payload->m_sequence};
+
+                int pbuffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_Res_Payload);
+                uint8_t * pbuffer = new uint8_t[pbuffer_size];
+                memcpy(pbuffer, &t21_data, sizeof(T21_Data));
+                memcpy(pbuffer+sizeof(T21_Data), &res_payload, sizeof(T21_Send_Media_Res_Payload));
+                send(m_socket, pbuffer, pbuffer_size, 0);
+                delete[] pbuffer;
+            }
+        }
+    }
+    frame_buffer.clear();
 }

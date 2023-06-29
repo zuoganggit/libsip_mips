@@ -7,6 +7,7 @@
 extern "C"{
     #include <netinet/in.h>
 }
+#include "T21_Def.h"
 using namespace::std;
 
 typedef std::function<void (uint8_t* data, int size)> FrameCallback;
@@ -26,12 +27,14 @@ public:
     void OpenVideoChannel();
     void CloseAudioChannel();
     void CloseVideoChannel();
-    void CallNotify(int acount_index);
+    void CallOutgoing(T21_Data *data);
+    void StopOutgoing(T21_Data *data);
     void Init();
 private:
     bool openUdpSocket();
     void closeUdpSocket();
     void run();
+    void t21CmdHandle(T21_Data *data);
 
     int m_t21_socket;
     sockaddr_in m_destinationAddr;

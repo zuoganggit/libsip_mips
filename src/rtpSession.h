@@ -2,6 +2,7 @@
 #define __RTP_SESSION__
 #include "ctrlProtocol.h"
 #include <iostream>
+#include <future>
 extern "C"{
     #include <netinet/in.h>
 }
@@ -13,7 +14,7 @@ typedef enum{
 }RtpSessionType;
 class RtpSession{
 public:
-    RtpSession(int localPort, RtpSessionType type, FrameCallback readAudioData = nullptr);
+    RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, FrameCallback readAudioData = nullptr);
     ~RtpSession();
     bool Start();
     bool Stop();
@@ -26,6 +27,8 @@ private:
     string m_remote_addr;
     int m_remote_port;
     int m_local_port;
+
+    std::future<void> m_run_future;
     RtpSessionType m_session_type;
     FrameCallback m_audio_data_callback;
     int m_socket;

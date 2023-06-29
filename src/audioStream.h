@@ -14,13 +14,14 @@ public:
     void Open(FrameCallback callback);
     bool IsOpened();
     void Close();
-    void WriteAudioFrame(uint8_t data, int dataSize);
+    void WriteAudioFrame(uint8_t* data, int dataSize);
 private:
     void run_test();
     void run();
     bool m_opening;
     FrameCallback m_frame_callback;
     int m_t21_port;
+    sockaddr_in m_destinationAddr;
     std::future<void> m_stream_run_future;
     int m_socket;
 };

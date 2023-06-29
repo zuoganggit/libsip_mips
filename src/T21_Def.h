@@ -10,6 +10,7 @@
 #define AUDIO_LOCAL_PORT  15613
 #define AUDIO_REMOTE_PORT 15603
 
+#pragma pack(1)
 typedef struct{
    uint8_t GroupCode:8;
    uint16_t CommandID:16;
@@ -102,17 +103,40 @@ typedef struct{
 }T21_Call_Res_Payload;
 
 
+
+//发送音频视频数据paylaod
+//CommandID:DB_CMD_Send_Media_Request
+typedef struct{
+    uint32_t	m_channelid:32;	// 设备通道ID
+    uint32_t	m_sequence:32;	// 音视频数据总分片索引,第一个分片开始从1依次递增
+    uint8_t	m_iskeyframe:8;	// 是否为关键帧
+    uint32_t	m_medialength:32;	// 音视频数据长度
+    uint8_t	    m_mediadata[0];	// 音视频数据
+}T21_Send_Media_Req_Payload;
+
+//发送音频视频数据paylaod
+//CommandID:DB_CMD_Send_Media_Request_EX
+typedef struct{
+    uint32_t	m_channelid:32;	// 设备通道ID
+    uint32_t	m_sequence:32;	// 音视频数据总分片索引,第一个分片开始从1依次递增
+    uint8_t	    m_iskeyframe:8;	// 是否为关键帧
+    uint8_t	    m_reseverd0:8;	// 保留字段，必须置0
+    uint32_t	m_medialength:32;	// 音视频数据长度
+    uint8_t	    m_mediadata[0];	// 音视频数据
+}T21_Send_Media_ReqEx_Payload;
+
+
 //发送音频视频数据paylaod
 //CommandID: DB_CMD_Send_Media_Request_EX2 = 0x20
 typedef struct{
     uint32_t	m_channelid:32;	// 设备通道ID
     uint32_t	m_sequence:32;	// 音视频数据总分片索引,第一个分片开始从1依次递增
-    uint32_t	m_iskeyframe:32;	// 是否为关键帧
+    uint8_t	    m_iskeyframe:8;	// 是否为关键帧
     uint8_t	    m_reseverd0:8;	// 保留字段，必须置0
     uint16_t	m_reseverd1:16;	// 保留字段，必须置0
     uint32_t	m_medialength:32;	// 音视频数据长度
     uint8_t	    m_mediadata[0];	// 音视频数据
-}T21_Send_Media_Req_Payload;
+}T21_Send_Media_ReqEx2_Payload;
 //CommandID: DB_CMD_Send_Media_Result = 0x06
 typedef struct{
    uint32_t	m_sequence;	// 上面请求包中的sequence
@@ -128,4 +152,11 @@ typedef struct{
     uint32_t  m_result;  // 请求回应的状态码, 见Result_e
 }T21_OpenMutex_Res_Payload;
 
+
+//DB_CMD_HangUp_Request
+typedef struct{
+    uint32_t  m_reson; // 挂断的原因：1=用户强制挂断；
+}T21_HangUp_Req_Payload;
+
+#pragma pack()
 #endif

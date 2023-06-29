@@ -11,6 +11,8 @@ using namespace std;
 
 class SipSession{
 public:
+    static shared_ptr<SipSession> GetInstance(const string& sipServerDomain = "",
+    const string& userName="",  const string& password="");
     SipSession(const string& sipServerDomain,
     const string& userName,  const string& password);
     ~SipSession();
@@ -19,7 +21,7 @@ public:
     bool Stop();
 
     int CallOutgoing(const string& toUser);
-    int TerminateOutgoing();
+    int TerminateCalling();
 private:
     void openMutexCtl(int channel);
     void sipRun();
@@ -37,7 +39,7 @@ private:
     std::future<void> m_sip_run_future;
     int m_call_cid;
     int m_call_did;
-
+    bool m_is_calling;
     int m_audio_rtp_local_port;
     int m_video_rtp_local_port;
     shared_ptr<RtpSession> audio_rtp_session;

@@ -14,12 +14,12 @@ public:
     void Open(FrameCallback callback);
     bool IsOpened();
     void Close();
-    // void WriteVideoFrame(uint8_t data, int dataSize);
 private:
     void run();
+    void run_new();
     bool m_opening;
     FrameCallback m_frame_callback;
-    int m_t21_port;
+    int m_socket;    
     std::future<void> m_stream_run_future;
 };
 
