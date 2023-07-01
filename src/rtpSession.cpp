@@ -1,6 +1,7 @@
 #include <cstring>
 #include <memory>
 #include <vector>
+
 #include "rtpSession.h"
 #include "audioStream.h"
 extern "C"{
@@ -232,12 +233,18 @@ void RtpSession::h264_Frame_RtpSend(const uint8_t* frameData, int frameSize){
 void RtpSession::BuildRtpAndSend(
     const uint8_t* frame, size_t size){
     if(m_session_type == PCM){
+        // printf("send pcm data size %d\n", size);
         auto buffer = PackRTPPacket(m_sequenceNumber, m_timestamp, m_mark, m_payloadType, 
             frame, size);
         if(m_socket > 0){
             sendto(m_socket, buffer->s_buffer, buffer->s_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
             m_sequenceNumber++;
-            m_timestamp += 320;
+            if(size == 320){
+                m_timestamp += 320;
+            }
+            else if(size == 160){
+                m_timestamp += 160;
+            }
             if(m_mark){
                 m_mark = false;
             }

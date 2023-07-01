@@ -104,17 +104,17 @@ void AudioStream::WriteAudioFrame(uint8_t* data, int dataSize){
     // cout<<"WriteAudioFrame dataSize "<<dataSize<<endl;
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Send_Media_Request_EX;
+    t21_data.CommandID = htons(DB_CMD_Send_Media_Request_EX);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Send_Media_ReqEx_Payload t21payload = {1, 1,
-        0, 0, (uint32_t)dataSize};
+    T21_Send_Media_ReqEx_Payload t21payload = {htonl(1), htonl(1),
+        0, 0, htonl(dataSize)};
     
     int buffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + dataSize;
     uint8_t * buffer = new uint8_t[buffer_size];
@@ -176,34 +176,50 @@ void AudioStream::run(){
     while(m_opening){
         ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
         T21_Data* t_data = (T21_Data*)buffer;
+        // printf("bytesRead  %d\n", bytesRead);
         if(bytesRead > 0 && bytesRead > sizeof(T21_Data)){
-            if(t_data->CommandID == DB_CMD_Send_Media_Request_EX){
+            int commonId = ntohs(t_data->CommandID);
+            //printf("recv audio data commonId %x,  bytesRead %d\n", commonId, bytesRead);
+            // printf("audio buffer ");
+            // for(ssize_t i = 0; i < bytesRead; i++){
+            //     printf(" %x , ", buffer[i]);
+            // }
+            // printf("\n\n");
+
+
+            if(commonId == DB_CMD_Send_Media_Request_EX){
                 T21_Send_Media_ReqEx_Payload *t21payload = (T21_Send_Media_ReqEx_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + t21payload->m_medialength){
-                    m_frame_callback(t21payload->m_mediadata, t21payload->m_medialength);
+                // printf("t21payload->m_medialength code %x, ntohl  %d\n", t21payload->m_medialength, ntohl(t21payload->m_medialength));
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload)){
+                    int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_ReqEx_Payload);
+                    // printf("bytesRead %d, T21_Data size %d, T21_Send_Media_ReqEx_Payload %d\n", bytesRead, 
+                        // sizeof(T21_Data), sizeof(T21_Send_Media_ReqEx_Payload));
+                    m_frame_callback(t21payload->m_mediadata, data_len);
                 }
-            }else if(t_data->CommandID == DB_CMD_Send_Media_Request){
+            }else if(commonId == DB_CMD_Send_Media_Request){
                 T21_Send_Media_Req_Payload *t21payload = (T21_Send_Media_Req_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_Req_Payload) + t21payload->m_medialength){
-                    m_frame_callback(t21payload->m_mediadata, t21payload->m_medialength);
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_Req_Payload)){
+                    int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_Req_Payload);
+                    m_frame_callback(t21payload->m_mediadata, data_len);
                 }
-            }else if(t_data->CommandID == DB_CMD_Send_Media_Request_EX2){
+            }else if(commonId == DB_CMD_Send_Media_Request_EX2){
                 T21_Send_Media_ReqEx2_Payload *t21payload = (T21_Send_Media_ReqEx2_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx2_Payload) + t21payload->m_medialength){
-                    m_frame_callback(t21payload->m_mediadata, t21payload->m_medialength);
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx2_Payload)){
+                    int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_ReqEx2_Payload);
+                    m_frame_callback(t21payload->m_mediadata, data_len);
                 }
 
                 T21_Data t21_data = {0};
                 t21_data.GroupCode = 0xDB;
-                t21_data.CommandID = DB_CMD_Send_Media_Result;
+                t21_data.CommandID = htons(DB_CMD_Send_Media_Result);
                 t21_data.Version = 0x01;
-                t21_data.CommandFlag = 0x12;
-                t21_data.TotalSegment = 0x01;
-                t21_data.SubSegment = 0x01;
-                t21_data.SegmentFlag = 0x01;
+                t21_data.CommandFlag = htonl(0x12);
+                t21_data.TotalSegment = htons(0x01);
+                t21_data.SubSegment = htons(0x01);
+                t21_data.SegmentFlag = htons(0x01);
                 t21_data.Reserved1 = 0;
                 t21_data.Reserved2 = 0;
-                T21_Send_Media_Res_Payload res_payload = {t21payload->m_sequence};
+                T21_Send_Media_Res_Payload res_payload = {htonl(t21payload->m_sequence)};
 
                 int pbuffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_Res_Payload);
                 uint8_t * pbuffer = new uint8_t[pbuffer_size];

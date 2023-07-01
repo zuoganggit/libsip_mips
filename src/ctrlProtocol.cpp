@@ -40,16 +40,16 @@ void CtrlProtocol::Init(){
 void CtrlProtocol::OpenMutex(int channel){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_DOControl_Request;
+    t21_data.CommandID = htons(DB_CMD_DOControl_Request);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_OpenMutex_Req_Payload payload = {(uint32_t)channel};
+    T21_OpenMutex_Req_Payload payload = {htonl(channel)};
     int buffer_size = sizeof(T21_OpenMutex_Req_Payload) + sizeof(T21_Data);
 
     uint8_t * buffer = new uint8_t[buffer_size];
@@ -67,12 +67,12 @@ void CtrlProtocol::OpenMutex(int channel){
 void CtrlProtocol::CallOutgoing(T21_Data *data){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Call_Result;
+    t21_data.CommandID = htons(DB_CMD_Call_Result);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
     int buffer_size = sizeof(T21_Call_Res_Payload) + sizeof(T21_Data);
@@ -98,11 +98,8 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
     }
 
     memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_Call_Res_Payload));
-    if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
-        cout<<"T21_Call_Res_Payload send fail"<<endl;
-    }else{
-        cout<<"T21_Call_Res_Payload send m_result "<< resPayload.m_result << endl;
-    }
+
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
     delete[] buffer;
 }
 
@@ -114,96 +111,97 @@ void CtrlProtocol::StopOutgoing(T21_Data *data){
 void CtrlProtocol::OpenAudioChannel(){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Play_Request;
+    t21_data.CommandID = htons(DB_CMD_Play_Request);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_AUDIO_Capture};
+    T21_Ctrl_Media_Payload payload = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
 
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    
+    T21_Ctrl_Media_Payload payload1 = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+    int buffer_size1 = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    
+    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Media_Payload));
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
 
-
-    // int ret = send(m_t21_socket, buffer, buffer_size, 0);
-    // if (ret <= 0){
-    //     cout<<"OpenAudioChannel request fail ret is "<< ret <<endl;
-    // }else{
-    //     cout<<"OpenAudioChannel request "<<endl;
-    // }
+    
     delete[] buffer;
 }
 
 void CtrlProtocol::OpenVideoChannel(){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Play_Request;
+    t21_data.CommandID = htons(DB_CMD_Play_Request);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_VIDEO};
+    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_VIDEO)};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
 
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
-
-    // int ret = send(m_t21_socket, buffer, buffer_size, 0);
-    // if (ret <= 0){
-    //     cout<<"OpenVideoChannel request fail ret is "<< ret <<endl;
-    // }else{
-    //     cout<<"OpenVideoChannel request "<<endl;
-    // }
     delete[] buffer;
 }
 
 void CtrlProtocol::CloseAudioChannel(){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Stop_Request;
+    t21_data.CommandID = htons(DB_CMD_Stop_Request);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {(uint32_t)1, (uint32_t)DB_MediaMode_AUDIO_Capture};
+    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_AUDIO_Capture)};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    
+    
+    T21_Ctrl_Media_Payload payload1 = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+    int buffer_size1 = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    
+    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Media_Payload));
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+
     delete[] buffer;
 }
 
 void CtrlProtocol::CloseVideoChannel(){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = DB_CMD_Stop_Request;
+    t21_data.CommandID = htons(DB_CMD_Stop_Request);
     t21_data.Version = 0x01;
-    t21_data.CommandFlag = 0x12;
-    t21_data.TotalSegment = 0x01;
-    t21_data.SubSegment = 0x01;
-    t21_data.SegmentFlag = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {1, DB_MediaMode_VIDEO};
+    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_VIDEO)};
     int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
@@ -271,7 +269,7 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
     if (data == nullptr){
         return;
     }
-    switch (data->CommandID){
+    switch (ntohs(data->CommandID)){
     case DB_CMD_Play_Result:
         break;
     case DB_CMD_Stop_Result:
@@ -308,9 +306,9 @@ void CtrlProtocol::run(){
               Version %x, CommandFlag %x, TotalSegment %x, \
               SubSegment %x, SegmentFlag %x, Reserved1 %x, \
               Reserved2 %x,  Payload %x \n",
-              data->GroupCode, data->CommandID, data->Version, data->CommandFlag,
-              data->TotalSegment, data->SubSegment, data->SegmentFlag,
-              data->Reserved1, data->Reserved2, data->Payload);
+              data->GroupCode, ntohs(data->CommandID), data->Version, ntohl(data->CommandFlag),
+              ntohs(data->TotalSegment), ntohs(data->SubSegment), ntohs(data->SegmentFlag),
+              ntohs(data->Reserved1), ntohl(data->Reserved2), data->Payload);
             
             t21CmdHandle(data);
         }

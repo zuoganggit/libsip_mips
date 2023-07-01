@@ -229,10 +229,9 @@ void VideoStream::run(){
                 cout << "frame_size too big "<<frame_buffer.size()<<endl;
                 return;
             }
-            for(int i = 0; i < size; i++){
-                frame_buffer.push_back(data[i]);
-            }
-            
+        }
+        for(int i = 0; i < size; i++){
+            frame_buffer.push_back(data[i]);
         }
     };
     while(m_opening){
@@ -240,33 +239,38 @@ void VideoStream::run(){
         T21_Data* t_data = (T21_Data*)buffer;
 
         if(bytesRead > 0 && bytesRead > sizeof(T21_Data)){
-            if(t_data->CommandID == DB_CMD_Send_Media_Request_EX){
+            int commonId = ntohs(t_data->CommandID);
+            if(commonId == DB_CMD_Send_Media_Request_EX){
                 T21_Send_Media_ReqEx_Payload *t21payload = (T21_Send_Media_ReqEx_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + t21payload->m_medialength){
-                   frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload)){
+                   int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_ReqEx_Payload);
+                   
+                   frame_handle(frame_buffer, t21payload->m_mediadata, data_len, ntohl(t21payload->m_sequence));
                 }
-            }else if(t_data->CommandID == DB_CMD_Send_Media_Request){
+            }else if(commonId == DB_CMD_Send_Media_Request){
                 T21_Send_Media_Req_Payload *t21payload = (T21_Send_Media_Req_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_Req_Payload) + t21payload->m_medialength){
-                    frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_Req_Payload)){
+                   int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_Req_Payload);
+                   frame_handle(frame_buffer, t21payload->m_mediadata, data_len, ntohl(t21payload->m_sequence));
                 }
-            }else if(t_data->CommandID == DB_CMD_Send_Media_Request_EX2){
+            }else if(commonId == DB_CMD_Send_Media_Request_EX2){
                 T21_Send_Media_ReqEx2_Payload *t21payload = (T21_Send_Media_ReqEx2_Payload *)t_data->Payload;
-                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx2_Payload) + t21payload->m_medialength){
-                    frame_handle(frame_buffer, t21payload->m_mediadata, t21payload->m_medialength, t21payload->m_sequence);
+                if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx2_Payload)){
+                    int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_ReqEx2_Payload);
+                   frame_handle(frame_buffer, t21payload->m_mediadata, data_len, ntohl(t21payload->m_sequence));
                 }
 
                 T21_Data t21_data = {0};
                 t21_data.GroupCode = 0xDB;
-                t21_data.CommandID = DB_CMD_Send_Media_Result;
+                t21_data.CommandID = htons(DB_CMD_Send_Media_Result);
                 t21_data.Version = 0x01;
-                t21_data.CommandFlag = 0x12;
-                t21_data.TotalSegment = 0x01;
-                t21_data.SubSegment = 0x01;
-                t21_data.SegmentFlag = 0x01;
+                t21_data.CommandFlag = htonl(0x12);
+                t21_data.TotalSegment = htons(0x01);
+                t21_data.SubSegment = htons(0x01);
+                t21_data.SegmentFlag = htons(0x01);
                 t21_data.Reserved1 = 0;
                 t21_data.Reserved2 = 0;
-                T21_Send_Media_Res_Payload res_payload = {t21payload->m_sequence};
+                T21_Send_Media_Res_Payload res_payload = {htonl(t21payload->m_sequence)};
 
                 int pbuffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_Res_Payload);
                 uint8_t * pbuffer = new uint8_t[pbuffer_size];
