@@ -4,6 +4,7 @@
 
 #include "rtpSession.h"
 #include "audioStream.h"
+#include "configServer.h"
 extern "C"{
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -72,17 +73,25 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
     m_sequenceNumber = 0;
     m_timestamp = 0;
     m_mark = true;
-    if(type == PCM){
-        m_payloadType = payloadType;
-    }else{
-        m_payloadType = payloadType;
+    m_payloadType = payloadType;
+    if(type == Video){
         m_timestamp = 6000;
     }
     
+    m_audio_ptr = AudioStream::GetInstance();
+    string laddr = "0.0.0.0";
+    if(ConfigServer::GetInstance()->GetLocalAddr(laddr)){
+        m_local_addr = laddr;
+    }else{
+        m_local_addr = "0.0.0.0";
+    }
+
     Start();
 }
 RtpSession::~RtpSession(){
+    cout<<"~RtpSession()"<<endl;
     Stop();
+    cout<<"~RtpSession() !!!!"<<endl;
 }
 bool RtpSession::Start(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -95,12 +104,18 @@ bool RtpSession::Start(){
     sockaddr_in localAddr{};
     localAddr.sin_family = AF_INET;
     localAddr.sin_port = htons(m_local_port);
-    localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+
+    if (inet_pton(AF_INET, m_local_addr.c_str(), &(localAddr.sin_addr)) <= 0) {
+        std::cerr << "Invalid  IP address" << std::endl;
+    }
 
     // 绑定本地地址
     if (bind(sock, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0) {
-        std::cerr << "RtpSession Failed to bind socket to local address port " << m_local_port<<endl;
-        return false;
+        localAddr.sin_addr.s_addr = htonl(INADDR_ANY);
+        if(bind(sock, (struct sockaddr*)&localAddr, sizeof(localAddr)) < 0){
+            std::cerr << "RtpSession Failed to bind socket to local address port " << m_local_port<<endl;
+            return false;
+        }
     }
 
     m_socket = sock;
@@ -111,12 +126,12 @@ bool RtpSession::Start(){
     return true;
 }
 bool RtpSession::Stop(){
+    m_opening = false;
+    m_run_future.wait();
     if(m_socket > 0){
         close(m_socket);
         m_socket = -1;
     }
-
-    m_run_future.wait();
     return true;
 }
 void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
@@ -129,6 +144,10 @@ void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
         m_destinationAddr = destinationAddr;
     }
     m_mark = true;
+}
+
+void RtpSession::SetPayloadType(uint8_t payloadType){
+    m_payloadType = payloadType;
 }
 
 
@@ -232,7 +251,7 @@ void RtpSession::h264_Frame_RtpSend(const uint8_t* frameData, int frameSize){
 
 void RtpSession::BuildRtpAndSend(
     const uint8_t* frame, size_t size){
-    if(m_session_type == PCM){
+    if(m_session_type == Audio){
         // printf("send pcm data size %d\n", size);
         auto buffer = PackRTPPacket(m_sequenceNumber, m_timestamp, m_mark, m_payloadType, 
             frame, size);
@@ -249,7 +268,7 @@ void RtpSession::BuildRtpAndSend(
                 m_mark = false;
             }
         }
-    }else if(m_session_type == H264){
+    }else if(m_session_type == Video){
         h264_Frame_RtpSend(frame, size);
         m_timestamp += 6000;
     }
@@ -272,7 +291,7 @@ struct RTPHeader {
 
 void RtpSession::run(){
     //recv audio rtp data
-    if(m_session_type == PCM){
+    if(m_session_type == Audio){
         int buffer_size = 1550;
         uint8_t buffer[buffer_size] = {0};
         struct sockaddr_in remoteAddr{};
@@ -280,13 +299,15 @@ void RtpSession::run(){
 
         // 设置阻塞超时时间
         timeval timeout{};
-        timeout.tv_sec = 1;  // 设置超时时间为1秒
-        timeout.tv_usec = 0;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 500000;
         
         if (setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout)) < 0) {
             std::cerr << "Failed to set receive timeout" << std::endl;
         }
-        while(m_socket > 0){
+
+        m_opening = true;
+        while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
             // if (bytesRead < 0) {
             //     std::cerr << "Failed to receive data" << std::endl;
@@ -306,7 +327,7 @@ void RtpSession::run(){
                 if(rtpHeader->payloadType != m_payloadType){
                     cout<<"payloadType "<<rtpHeader->payloadType<<endl;
                 }
-                AudioStream::GetInstance()->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
+                m_audio_ptr->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
             }
         }
     }

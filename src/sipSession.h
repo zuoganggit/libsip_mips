@@ -32,6 +32,7 @@ private:
 
     void sendAudioRtp(uint8_t* frame, int size);
     struct eXosip_t *m_context_eXosip;
+    string m_local_ip;
     string m_sip_server_domain;
     string m_user_name;
     string m_password;

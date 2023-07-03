@@ -17,6 +17,8 @@ AudioStream::AudioStream(int t21port){
 }
     
 AudioStream::~AudioStream(){
+    cout<<"~AudioStream()"<<endl;
+
     Close();
     if(m_socket > 0){
         close(m_socket);
@@ -58,8 +60,8 @@ bool AudioStream::Init(){
 
     // 设置阻塞超时时间
     timeval timeout{};
-    timeout.tv_sec = 1;  // 设置超时时间为1秒
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 500000;
 
     if (setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout)) < 0) {
         std::cerr << "Failed to set receive timeout" << std::endl;
@@ -80,7 +82,8 @@ void AudioStream::Open(FrameCallback callback){
         CtrlProtocol::GetInstance()->OpenAudioChannel();
     }
     else{
-        Close();
+        return;
+        // Close();
     }
 
     m_frame_callback = callback;

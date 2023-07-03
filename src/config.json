@@ -15,6 +15,14 @@
         ]
     },
 
+    "audio_codec":[
+        {"codec":"G711U"},
+        {"codec":"G711A"},
+        {"codec":"G722"},
+        {"codec":"OPUS"}
+    ],
+
+    
     "net_config":{
         "ip":"192.168.16.100",      //IP地址
         "gateway":"192.168.16.1",   //网关地址

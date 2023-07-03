@@ -1,5 +1,6 @@
 #include <fstream>
 #include <sstream>
+#include <iostream>
 #include "configServer.h"
 #include "json/value.h"
 #include "json/reader.h"
@@ -83,6 +84,17 @@ bool ConfigServer::GetOutAccount(int index, string& account){
                 return true;
             }
         }
+    }
+
+    return false;
+}
+
+bool ConfigServer::GetLocalAddr(string& addr){
+    if(m_config_value.isMember("net_config") && 
+        m_config_value["net_config"].isMember("ip")){
+        addr = m_config_value["net_config"]["ip"].asString();
+        std::cout<<"local addr "<< addr <<endl;
+        return true;
     }
 
     return false;

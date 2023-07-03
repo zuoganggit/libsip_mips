@@ -14,6 +14,7 @@ VideoStream::VideoStream(int t21port){
     Init();
 }
 VideoStream::~VideoStream(){
+    cout<<"~VideoStream()"<<endl;
     Close();
     if(m_socket > 0){
         close(m_socket);
@@ -49,8 +50,8 @@ bool VideoStream::Init(){
     m_socket = sock;
     // 设置阻塞超时时间
     timeval timeout{};
-    timeout.tv_sec = 1;  // 设置超时时间为1秒
-    timeout.tv_usec = 0;
+    timeout.tv_sec = 0;
+    timeout.tv_usec = 500000;
 
     if (setsockopt(m_socket, SOL_SOCKET, SO_RCVTIMEO, reinterpret_cast<char*>(&timeout), sizeof(timeout)) < 0) {
         std::cerr << "Failed to set receive timeout" << std::endl;
@@ -65,7 +66,8 @@ void VideoStream::Open(FrameCallback callback){
         CtrlProtocol::GetInstance()->OpenVideoChannel();
     }
     else{
-        Close();
+        return;
+        // Close();
     }
 
     m_frame_callback = callback;

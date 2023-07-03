@@ -19,6 +19,7 @@ public:
     bool GetRegExpires(int& expires);
     bool GetRegPeriod(int& period);
     bool GetOutAccount(int index, string& account);
+    bool GetLocalAddr(string& addr);
 private:
     string m_config_file;
     //key value

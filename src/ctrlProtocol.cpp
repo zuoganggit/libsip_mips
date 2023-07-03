@@ -15,6 +15,7 @@ CtrlProtocol::CtrlProtocol(){
 }
 
 CtrlProtocol::~CtrlProtocol(){
+    cout<<"~CtrlProtocol()"<<endl;
     m_exited = true;
     m_run_future.wait();
     closeUdpSocket();
@@ -282,7 +283,7 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         break;
     case DB_CMD_Query_RegStatus_Result:
         break;
-    case DB_CMD_Call_Result:
+    case DB_CMD_Call_Request:
         CallOutgoing(data);
         break;
     case DB_CMD_HangUp_Request:

@@ -23,7 +23,9 @@ bool exitFlag = false;
 void WaitForSignal()
 {
     std::unique_lock<std::mutex> lock(mtx);
-    cv.wait(lock, []{ return exitFlag; });
+    cv.wait(lock, []{ 
+        return exitFlag; 
+        });
 }
 
 void SendSignal()

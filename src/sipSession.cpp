@@ -7,6 +7,7 @@
 #include "videoStream.h"
 #include "sipSession.h"
 #include "ctrlProtocol.h"
+#include "configServer.h"
 
 int sip_local_port = 5060;
 
@@ -28,10 +29,12 @@ SipSession::SipSession(const string &sipServerDomain,
     m_audio_rtp_local_port = 4002;
     m_video_rtp_local_port = 5002;
     m_is_calling = false;
+    m_local_ip = "0.0.0.0";
 }
 
 SipSession::~SipSession()
 {
+    cout<<"~SipSession() "<<endl;
     if(!m_exited){
         Stop();
     }
@@ -53,9 +56,16 @@ bool SipSession::Start(){
         return false;
     }
 
-    if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, NULL, sip_local_port, AF_INET, 0) < 0){
+    eXosip_set_user_agent(m_context_eXosip, "mips_sipper");
+    string laddr = "0.0.0.0";
+    ConfigServer::GetInstance()->GetLocalAddr(laddr);
+    if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, laddr.c_str(), sip_local_port, AF_INET, 0) < 0){
         cout<<"eXosip_listen_addr fail"<<endl;
-        return false;
+        if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, NULL, sip_local_port, AF_INET, 0) < 0){
+            return false;
+        }
+    }else{
+        m_local_ip = laddr;
     }
 
     int optval = 1;
@@ -69,8 +79,8 @@ bool SipSession::Start(){
     }
 
 
-    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, PCM, 0);
-    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, H264, 99);
+    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, Audio, 0);
+    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, Video, 99);
 
     m_sip_run_future = std::async(std::launch::async, [this](){
         this->sipRun();
@@ -98,7 +108,13 @@ void SipSession::callAnswered(eXosip_event_t *event){
             sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
             if(audioMedia){
                 string remoteAudioPort = audioMedia->m_port;
-                cout<<"remote_audio_addr  "<<remote_audio_addr << " remoteAudioPort "<<remoteAudioPort<<endl;
+                char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
+                cout<<"remote_audio_addr  "<<remote_audio_addr << 
+                    " remoteAudioPort "<<remoteAudioPort<< " payloads "<< payloads<<endl;
+                
+                int payload = std::atoi(payloads);
+                audio_rtp_session->SetPayloadType(uint8_t(payload));
+
                 audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
                 AudioStream::GetInstance()->Open([this](uint8_t* data, int size){
                     // cout<<"pcm size "<<size<<endl;
@@ -114,6 +130,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 string remoteVideoPort = videoMedia->m_port;
                 cout<<"remote_video_addr "<<remote_video_addr << 
                     " remoteVideoPort "<<remoteVideoPort<<endl;
+
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
                  VideoStream::GetInstance()->Open([this](uint8_t* data, int size){
                     video_rtp_session->BuildRtpAndSend(data, size);
@@ -142,8 +159,13 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
         sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
         if(audioMedia){
             string remoteAudioPort = audioMedia->m_port;
-            cout<<"remote_audio_addr  "<<remote_audio_addr << " remoteAudioPort "<<remoteAudioPort<<endl;
+
+            char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
+            cout<<"remote_audio_addr  "<<remote_audio_addr << 
+                  " remoteAudioPort "<<remoteAudioPort<< " payload "<<payloads<<endl;
             
+            int payload = std::atoi(payloads);
+            audio_rtp_session->SetPayloadType(uint8_t(payload));
             audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
             AudioStream::GetInstance()->Open([this](uint8_t* data, int size){
                     audio_rtp_session->BuildRtpAndSend(data, size);
@@ -175,8 +197,14 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
     else
     {
         char tmp[4096];
-        char localip[128];
-        eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
+        char localip[128] = {0};
+        if(m_local_ip == "0.0.0.0"){
+            eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
+        }else{
+            strcpy(localip, m_local_ip.c_str());
+        }
+        
+
         snprintf (tmp, 4096,
                 "v=0\r\n"
                 "o=jack 0 0 IN IP4 %s\r\n"
@@ -270,8 +298,8 @@ void SipSession::sipRun(){
                     }
                     break;
                 case EXOSIP_CALL_REINVITE:
-                    AudioStream::GetInstance()->Close();
-                    VideoStream::GetInstance()->Close();
+                    // AudioStream::GetInstance()->Close();
+                    // VideoStream::GetInstance()->Close();
                     outCallAnswer(event);
                     break;
                 case EXOSIP_CALL_REQUESTFAILURE:
@@ -316,6 +344,7 @@ void SipSession::sipRun(){
 
 }
 bool SipSession::Stop(){
+    TerminateCalling();
     m_exited = true;
     m_sip_run_future.wait();
     return true;
@@ -344,7 +373,12 @@ int SipSession::CallOutgoing(const string &toUser){
         char tmp[4096];
         char localip[128];
 
-        eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
+        if(m_local_ip == "0.0.0.0"){
+            eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
+        }else{
+            strcpy(localip, m_local_ip.c_str());
+        }
+
         snprintf (tmp, 4096,
                 "v=0\r\n"
                 "o=jack 0 0 IN IP4 %s\r\n"
