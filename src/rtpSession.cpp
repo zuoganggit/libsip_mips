@@ -91,7 +91,6 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
 RtpSession::~RtpSession(){
     cout<<"~RtpSession()"<<endl;
     Stop();
-    cout<<"~RtpSession() !!!!"<<endl;
 }
 bool RtpSession::Start(){
     int sock = socket(AF_INET, SOCK_DGRAM, 0);

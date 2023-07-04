@@ -203,12 +203,6 @@ void CtrlProtocol::CloseVideoChannel(){
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
-    // if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
-    //     cout<<"CloseVideoChannel request fail"<<endl;
-    // }else{
-    //     cout<<"CloseVideoChannel request "<<endl;
-    // }
-
     delete[] buffer;
 }
 
@@ -308,7 +302,5 @@ void CtrlProtocol::run(){
             
             t21CmdHandle(data);
         }
-
-        // printf("continue   recv  t21 data bytes %d\n",bytes);
     }
 }
