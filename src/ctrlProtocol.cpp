@@ -56,11 +56,7 @@ void CtrlProtocol::OpenMutex(int channel){
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_OpenMutex_Req_Payload));
-    if (send(m_t21_socket, buffer, buffer_size, 0) <= 0){
-        cout<<"OpenMutex request send fail"<<endl;
-    }else{
-        cout<<"OpenMutex request send "<<endl;
-    }
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
     delete[] buffer;
 }
 
@@ -79,7 +75,7 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
     int buffer_size = sizeof(T21_Call_Res_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    T21_Call_Res_Payload resPayload = {(uint8_t)DB_Result_Failed};
+    T21_Call_Res_Payload resPayload = {htonl(DB_Result_Failed)};
 
     T21_Call_Req_Payload *payload = (T21_Call_Req_Payload *)data->Payload;
     if(payload != nullptr){
@@ -135,7 +131,6 @@ void CtrlProtocol::OpenAudioChannel(){
     memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
 
-    
     delete[] buffer;
 }
 

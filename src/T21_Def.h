@@ -99,7 +99,7 @@ typedef struct{
 }T21_Call_Req_Payload;
 //CommandID: DB_CMD_Call_Result = 0xF2
 typedef struct{
-    uint8_t	m_result;	    // 请求回应的状态码, 见Result_e
+    uint32_t m_result;	    // 请求回应的状态码, 见Result_e
 }T21_Call_Res_Payload;
 
 
