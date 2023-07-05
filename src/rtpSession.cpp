@@ -308,11 +308,6 @@ void RtpSession::run(){
         m_opening = true;
         while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
-            // if (bytesRead < 0) {
-            //     std::cerr << "Failed to receive data" << std::endl;
-            //     // break;
-            // }
-
             // 解析RTP头部
             if (bytesRead > 0 && bytesRead >= sizeof(RTPHeader)) {
                 // cout<<"recv rtp size "<<bytesRead<<endl;

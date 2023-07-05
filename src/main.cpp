@@ -38,12 +38,9 @@ void SendSignal()
 
 void SignalHandler(int signal)
 {
-    if (signal == SIGINT)
-    {
-        std::cout << "Received Ctrl+C signal. Exiting..." << std::endl;
-        exitFlag = true;
-        SendSignal();
-    }
+    std::cout << "Received Ctrl+C signal. Exiting..." << std::endl;
+    exitFlag = true;
+    SendSignal();
 }
 
 int main(int argc, char ** argv){

@@ -83,9 +83,9 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
         string dst_user;
         if(ConfigServer::GetInstance()->GetOutAccount(acount_index, dst_user)){
             if(SipSession::GetInstance()->CallOutgoing(dst_user)){
-                resPayload.m_result = DB_Result_Success;
+                resPayload.m_result = htonl(DB_Result_Success);
             }else{
-                resPayload.m_result = DB_Result_Talking;
+                resPayload.m_result = htonl(DB_Result_Talking);
             }
         }else{
             cerr<<"CallNotify GetOutAccount fail index "<<acount_index<<endl;

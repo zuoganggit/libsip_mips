@@ -20,7 +20,7 @@ public:
     bool Start();
     bool Stop();
 
-    int CallOutgoing(const string& toUser);
+    bool CallOutgoing(const string& toUser);
     int TerminateCalling();
 private:
     void openMutexCtl(int channel);

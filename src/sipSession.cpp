@@ -248,14 +248,14 @@ std::unordered_map<std::string, std::string> parseKeyValuePairs(const std::strin
     return keyValuePairs;
 }
 
-    osip_message_t *reg = nullptr;
 void SipSession::sipRun(){
     int rid = 0;    
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
     string to = "sip:" + m_sip_server_domain;
     
     cout<<"prepare register from "<<from << " to "<< to<<endl;
-
+    osip_message_t *reg = nullptr;
+    
     uint16_t tt = 0;
     int open_mutex_channel = -1;
     while(!m_exited){
@@ -350,10 +350,10 @@ bool SipSession::Stop(){
     return true;
 }
 
-int SipSession::CallOutgoing(const string &toUser){
+bool SipSession::CallOutgoing(const string &toUser){
     if(m_is_calling){
         cerr<<"is calling ,please close call"<<endl;
-        return -1;
+        return false;
     }
     if(!m_exited){
         osip_message_t *invite;
@@ -367,7 +367,7 @@ int SipSession::CallOutgoing(const string &toUser){
         if (i != 0)
         {
             printf("eXosip_call_build_initial_invite fail\n");
-            return -1;
+            return false;
         }
 
         char tmp[4096];
@@ -402,9 +402,8 @@ int SipSession::CallOutgoing(const string &toUser){
         eXosip_lock(m_context_eXosip);
         cid = eXosip_call_send_initial_invite (m_context_eXosip, invite);
         eXosip_unlock(m_context_eXosip);
-
     }
-    return 0;
+    return true;
 }
 int SipSession::TerminateCalling(){
     eXosip_lock(m_context_eXosip);
