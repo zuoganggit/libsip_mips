@@ -30,6 +30,10 @@ SipSession::SipSession(const string &sipServerDomain,
     m_video_rtp_local_port = 5002;
     m_is_calling = false;
     m_local_ip = "0.0.0.0";
+    m_is_registed = false;
+    m_CtrlProtocol_ptr = CtrlProtocol::GetInstance();
+    m_AudioStream_ptr = AudioStream::GetInstance();
+    m_VideoStream_ptr = VideoStream::GetInstance();
 }
 
 SipSession::~SipSession()
@@ -96,6 +100,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
         eXosip_call_send_ack(m_context_eXosip, event->did, ack);
         sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
         if(sdp){
+            m_CtrlProtocol_ptr->SendCallResult(DB_Result_Success);
             // char *str_sdp = NULL;
             // sdp_message_to_str(sdp, &str_sdp);
             // if(str_sdp){
@@ -116,7 +121,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 audio_rtp_session->SetPayloadType(uint8_t(payload));
 
                 audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
-                AudioStream::GetInstance()->Open([this](uint8_t* data, int size){
+                m_AudioStream_ptr->Open([this](uint8_t* data, int size){
                     // cout<<"pcm size "<<size<<endl;
                     audio_rtp_session->BuildRtpAndSend(data,size);
                 });
@@ -132,13 +137,15 @@ void SipSession::callAnswered(eXosip_event_t *event){
                     " remoteVideoPort "<<remoteVideoPort<<endl;
 
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
-                 VideoStream::GetInstance()->Open([this](uint8_t* data, int size){
+                 m_VideoStream_ptr->Open([this](uint8_t* data, int size){
                     video_rtp_session->BuildRtpAndSend(data, size);
                 });
             }
         }
         sdp_message_free(sdp);
+        return;
     }
+    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
 }
 
 
@@ -167,7 +174,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             int payload = std::atoi(payloads);
             audio_rtp_session->SetPayloadType(uint8_t(payload));
             audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
-            AudioStream::GetInstance()->Open([this](uint8_t* data, int size){
+            m_AudioStream_ptr->Open([this](uint8_t* data, int size){
                     audio_rtp_session->BuildRtpAndSend(data, size);
                 });
         }
@@ -181,7 +188,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 " remoteVideoPort "<<remoteVideoPort<<endl;
 
             video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
-            VideoStream::GetInstance()->Open([this](uint8_t* data, int size){
+            m_VideoStream_ptr->Open([this](uint8_t* data, int size){
                     video_rtp_session->BuildRtpAndSend(data, size);
                 });
         }
@@ -196,6 +203,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
     }
     else
     {
+        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Success);
         char tmp[4096];
         char localip[128] = {0};
         if(m_local_ip == "0.0.0.0"){
@@ -258,6 +266,7 @@ void SipSession::sipRun(){
     
     uint16_t tt = 0;
     int open_mutex_channel = -1;
+    int register_fail_count = 0;
     while(!m_exited){
         if(tt % 30 == 0){
             eXosip_lock(m_context_eXosip);
@@ -286,23 +295,34 @@ void SipSession::sipRun(){
 
             switch(event->type){
                 case EXOSIP_REGISTRATION_SUCCESS:
+                    m_is_registed = true;
+                    register_fail_count = 0;
                     break;
                 case EXOSIP_REGISTRATION_FAILURE:
+                    register_fail_count++;
+                    if(register_fail_count > 1){
+                        m_is_registed = false;
+                        register_fail_count = 0;
+                    }
                     break;
                 case EXOSIP_CALL_INVITE:
-                    if(AudioStream::GetInstance()->IsOpened()){
+                    if(m_AudioStream_ptr->IsOpened()){
                         eXosip_call_send_answer(m_context_eXosip, event->tid, 
                             SIP_BUSY_HERE, NULL);
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Busy);
                     }else{
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                         outCallAnswer(event);
                     }
                     break;
                 case EXOSIP_CALL_REINVITE:
                     // AudioStream::GetInstance()->Close();
                     // VideoStream::GetInstance()->Close();
+                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                     outCallAnswer(event);
                     break;
                 case EXOSIP_CALL_REQUESTFAILURE:
+                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
                     break;
                 case EXOSIP_CALL_MESSAGE_NEW:
                     // osip_message_to_str(event->request, &message_str, &message_size);
@@ -314,7 +334,7 @@ void SipSession::sipRun(){
 
                             if(signalValue.find("#") != string::npos && open_mutex_channel > 0){
                                 printf("open mutex  channel %d\n", open_mutex_channel);
-                                CtrlProtocol::GetInstance()->OpenMutex(open_mutex_channel);
+                                m_CtrlProtocol_ptr->OpenMutex(open_mutex_channel);
                                 open_mutex_channel = 0;
                             }else{
                                 open_mutex_channel = std::atoi(signalValue.c_str());
@@ -329,10 +349,14 @@ void SipSession::sipRun(){
                     break;
                 case EXOSIP_CALL_CLOSED:
                     if(event->did == m_call_did){
-                        AudioStream::GetInstance()->Close();
-                        VideoStream::GetInstance()->Close();
+                        m_AudioStream_ptr->Close();
+                        m_VideoStream_ptr->Close();
                         m_is_calling = false;
                     }
+                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
+                    break;
+                case EXOSIP_CALL_RELEASED:
+
                     break;
                 default:
                     break;
@@ -402,19 +426,29 @@ bool SipSession::CallOutgoing(const string &toUser){
         eXosip_lock(m_context_eXosip);
         cid = eXosip_call_send_initial_invite (m_context_eXosip, invite);
         eXosip_unlock(m_context_eXosip);
+        if(cid < 0){
+            printf("eXosip_call_send_initial_invite fail\n");
+            return false;
+        }
     }
+
+    printf("CallOutgoing ok\n");
+    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
     return true;
 }
 int SipSession::TerminateCalling(){
     eXosip_lock(m_context_eXosip);
     eXosip_call_terminate(m_context_eXosip, m_call_cid, m_call_did);
     eXosip_unlock(m_context_eXosip);
-    AudioStream::GetInstance()->Close();
-    VideoStream::GetInstance()->Close();
+    m_AudioStream_ptr->Close();
+    m_VideoStream_ptr->Close();
     m_is_calling = false;
     return 0;
 }
 
+bool SipSession::GetRegStatus(){
+    return m_is_registed;
+}
 void SipSession::openMutexCtl(int channel){
-    CtrlProtocol::GetInstance()->OpenMutex(channel);
+    m_CtrlProtocol_ptr->OpenMutex(channel);
 }

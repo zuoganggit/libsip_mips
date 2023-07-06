@@ -97,12 +97,16 @@ typedef struct{
                             //每个输入对应一个账号
                             //也可能多个输入对应同一个账号
 }T21_Call_Req_Payload;
+
 //CommandID: DB_CMD_Call_Result = 0xF2
 typedef struct{
     uint32_t m_result;	    // 请求回应的状态码, 见Result_e
 }T21_Call_Res_Payload;
 
-
+//CommandID:  DB_CMD_Query_RegStatus_Result
+typedef struct{
+    uint8_t m_regStatus; //RegStatus_e
+}T21_Query_RegStatus_Res_Payload;
 
 //发送音频视频数据paylaod
 //CommandID:DB_CMD_Send_Media_Request

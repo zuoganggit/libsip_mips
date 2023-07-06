@@ -44,6 +44,7 @@ private:
     bool m_mark;
 
     shared_ptr<AudioStream> m_audio_ptr; 
+    shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;
 };
 
 

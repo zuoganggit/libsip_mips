@@ -6,6 +6,9 @@
 #include <future>
 #include <memory>
 #include "rtpSession.h"
+#include "ctrlProtocol.h"
+#include "audioStream.h"
+#include "videoStream.h"
 
 using namespace std;
 
@@ -22,6 +25,7 @@ public:
 
     bool CallOutgoing(const string& toUser);
     int TerminateCalling();
+    bool GetRegStatus();
 private:
     void openMutexCtl(int channel);
     void sipRun();
@@ -45,6 +49,10 @@ private:
     int m_video_rtp_local_port;
     shared_ptr<RtpSession> audio_rtp_session;
     shared_ptr<RtpSession> video_rtp_session;
+    bool m_is_registed;
+    shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;
+    shared_ptr<AudioStream> m_AudioStream_ptr;
+    shared_ptr<VideoStream> m_VideoStream_ptr;
 };
 
 #endif

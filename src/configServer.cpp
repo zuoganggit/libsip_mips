@@ -26,6 +26,61 @@ void ConfigServer::Init(){
     Json::Reader reader;
     reader.parse(buffer, m_config_value);
 }
+
+void ConfigServer::loadConfig(){
+    ifstream file(m_config_file);
+    char buffer[1024*2] = {0};
+    file.read(buffer, sizeof(buffer));
+    printf("config file %s\n", buffer);
+    Json::Reader reader;
+    Json::Value value;
+    reader.parse(buffer, value);
+
+    if(value.isMember("sip_config")){
+        SipConfig sipconfig;
+        if(value["sip_config"].isMember("domain_name")){
+            sipconfig.m_sip_domain = value["sip_config"]["domain_name"].asString();
+        }
+
+        if(value["sip_config"].isMember("user_name")){
+            sipconfig.m_sip_username = value["sip_config"]["user_name"].asString();
+        }
+
+        if(value["sip_config"].isMember("password")){
+            sipconfig.m_sip_password = value["sip_config"]["password"].asString();
+        }
+
+        if(value["sip_config"].isMember("reg_expires")){
+            sipconfig.m_sip_expires = value["sip_config"]["reg_expires"].asInt();
+        }
+
+        if(value["sip_config"].isMember("reg_period")){
+            sipconfig.m_sip_period = value["sip_config"]["reg_period"].asInt();
+        }
+
+        if(value["sip_config"].isMember("sip_outcall_account")){
+            Json::Value accounts = m_config_value["sip_config"]["sip_outcall_account"];
+             if(accounts.isArray()){
+                for(int i=0; i< accounts.size(); i++){
+                    if(accounts[i].isMember("account")){
+                        sipconfig.m_out_accounts.push_back(accounts[i]["account"].asString());
+                    }
+                }
+             }
+        }
+        m_sipConfig = sipconfig;
+    }
+
+    if(value.isMember("net_config")){
+
+    }
+
+    if(value.isMember("codec")){
+        
+    }
+}
+
+
 bool ConfigServer::GetSipDomain(string& domain){
     if(m_config_value.isMember("sip_config") && 
         m_config_value["sip_config"].isMember("domain_name")){

@@ -62,6 +62,33 @@ void CtrlProtocol::OpenMutex(int channel){
 
 
 void CtrlProtocol::CallOutgoing(T21_Data *data){
+
+    T21_Call_Req_Payload *payload = (T21_Call_Req_Payload *)data->Payload;
+    if(payload != nullptr){
+        int acount_index = payload->m_DIType;
+        string dst_user;
+        if(ConfigServer::GetInstance()->GetOutAccount(acount_index, dst_user)){
+            if(SipSession::GetInstance()->CallOutgoing(dst_user)){
+                // resPayload.m_result = htonl(DB_Result_Success);
+                SendCallResult(DB_Result_Calling);
+                return;
+            }
+        }else{
+            cerr<<"CallNotify GetOutAccount fail index "<<acount_index<<endl;
+        }
+    }else{
+        cerr<<"CallNotify not found T21_Call_Req_Payload "<<endl;
+    }
+    SendCallResult(DB_Result_Failed);
+}
+
+
+void CtrlProtocol::StopOutgoing(T21_Data *data){
+    SipSession::GetInstance()->TerminateCalling();
+}
+
+void CtrlProtocol::SendCallResult(Result_e ret){
+    printf("SendCallResult  %d\n", ret);
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Call_Result);
@@ -75,24 +102,7 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
     int buffer_size = sizeof(T21_Call_Res_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    T21_Call_Res_Payload resPayload = {htonl(DB_Result_Failed)};
-
-    T21_Call_Req_Payload *payload = (T21_Call_Req_Payload *)data->Payload;
-    if(payload != nullptr){
-        int acount_index = payload->m_DIType;
-        string dst_user;
-        if(ConfigServer::GetInstance()->GetOutAccount(acount_index, dst_user)){
-            if(SipSession::GetInstance()->CallOutgoing(dst_user)){
-                resPayload.m_result = htonl(DB_Result_Success);
-            }else{
-                resPayload.m_result = htonl(DB_Result_Talking);
-            }
-        }else{
-            cerr<<"CallNotify GetOutAccount fail index "<<acount_index<<endl;
-        }
-    }else{
-        cerr<<"CallNotify not found T21_Call_Req_Payload "<<endl;
-    }
+    T21_Call_Res_Payload resPayload = {htonl(ret)};
 
     memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_Call_Res_Payload));
 
@@ -101,8 +111,30 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
 }
 
 
-void CtrlProtocol::StopOutgoing(T21_Data *data){
-    SipSession::GetInstance()->TerminateCalling();
+void CtrlProtocol::SendRegStatus(T21_Data *data){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = htons(DB_CMD_Query_RegStatus_Result);
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
+
+    int buffer_size = sizeof(T21_Call_Res_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+
+    T21_Query_RegStatus_Res_Payload resPayload = {uint8_t(REGST_SUCCESS)};
+    if(!SipSession::GetInstance()->GetRegStatus()){
+        resPayload.m_regStatus = uint8_t(REGST_AUTH_FAILED);
+    }
+    printf("register %d\n",SipSession::GetInstance()->GetRegStatus());
+    memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_Call_Res_Payload));
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    delete[] buffer;
 }
 
 void CtrlProtocol::OpenAudioChannel(){
@@ -270,7 +302,8 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         break;
     case DB_CMD_Send_Media_Request_EX2:
         break;
-    case DB_CMD_Query_RegStatus_Result:
+    case DB_CMD_Query_RegStatus_Request:
+        SendRegStatus(data);
         break;
     case DB_CMD_Call_Request:
         CallOutgoing(data);

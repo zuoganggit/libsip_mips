@@ -77,7 +77,7 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
     if(type == Video){
         m_timestamp = 6000;
     }
-    
+    m_CtrlProtocol_ptr = CtrlProtocol::GetInstance();
     m_audio_ptr = AudioStream::GetInstance();
     string laddr = "0.0.0.0";
     if(ConfigServer::GetInstance()->GetLocalAddr(laddr)){
@@ -306,6 +306,7 @@ void RtpSession::run(){
         }
 
         m_opening = true;
+        bool is_talk = false;
         while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
             // 解析RTP头部
@@ -322,6 +323,11 @@ void RtpSession::run(){
                     cout<<"payloadType "<<rtpHeader->payloadType<<endl;
                 }
                 m_audio_ptr->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
+                
+                if(!is_talk){
+                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
+                    is_talk = true;
+                }
             }
         }
     }

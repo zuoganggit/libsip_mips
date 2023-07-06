@@ -29,6 +29,8 @@ public:
     void CloseVideoChannel();
     void CallOutgoing(T21_Data *data);
     void StopOutgoing(T21_Data *data);
+    void SendRegStatus(T21_Data *data);
+    void SendCallResult(Result_e ret);
     void Init();
 private:
     bool openUdpSocket();
