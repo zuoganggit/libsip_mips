@@ -10,6 +10,8 @@
 #include "configServer.h"
 
 int sip_local_port = 5060;
+#define  H264_PAYLOAD_TYPE 99
+#define  G711U_PAYLOAD_TYPE 0
 
 
 shared_ptr<SipSession> SipSession::GetInstance(const string& sipServerDomain,
@@ -83,8 +85,8 @@ bool SipSession::Start(){
     }
 
 
-    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, Audio, 0);
-    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, Video, 99);
+    audio_rtp_session = make_shared<RtpSession>(m_audio_rtp_local_port, Audio, G711U_PAYLOAD_TYPE);
+    video_rtp_session = make_shared<RtpSession>(m_video_rtp_local_port, Video, H264_PAYLOAD_TYPE);
 
     m_sip_run_future = std::async(std::launch::async, [this](){
         this->sipRun();
@@ -114,7 +116,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
             if(audioMedia){
                 string remoteAudioPort = audioMedia->m_port;
                 char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
-                cout<<"remote_audio_addr  "<<remote_audio_addr << 
+                cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                     " remoteAudioPort "<<remoteAudioPort<< " payloads "<< payloads<<endl;
                 
                 int payload = std::atoi(payloads);
@@ -133,8 +135,12 @@ void SipSession::callAnswered(eXosip_event_t *event){
             m_call_did = event->did;
             if(videoMedia){
                 string remoteVideoPort = videoMedia->m_port;
-                cout<<"remote_video_addr "<<remote_video_addr << 
-                    " remoteVideoPort "<<remoteVideoPort<<endl;
+
+                char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
+                cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
+                    " remoteVideoPort "<<remoteVideoPort << "payloads "<<payloads <<endl;
+                int payload = std::atoi(payloads);
+                video_rtp_session->SetPayloadType(uint8_t(payload));
 
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
                  m_VideoStream_ptr->Open([this](uint8_t* data, int size){
@@ -168,7 +174,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             string remoteAudioPort = audioMedia->m_port;
 
             char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
-            cout<<"remote_audio_addr  "<<remote_audio_addr << 
+            cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                   " remoteAudioPort "<<remoteAudioPort<< " payload "<<payloads<<endl;
             
             int payload = std::atoi(payloads);
@@ -184,8 +190,13 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
         sdp_media_t * videoMedia = eXosip_get_video_media(sdp);
         if(videoMedia){
             string remoteVideoPort = videoMedia->m_port;
-            cout<<"remote_video_addr "<<remote_video_addr << 
-                " remoteVideoPort "<<remoteVideoPort<<endl;
+            
+            char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
+            cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
+                    " remoteVideoPort "<<remoteVideoPort << " video payloads "<<payloads <<endl;
+            int payload = std::atoi(payloads);
+            video_rtp_session->SetPayloadType(uint8_t(payload));
+
 
             video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
             m_VideoStream_ptr->Open([this](uint8_t* data, int size){

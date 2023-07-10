@@ -59,6 +59,7 @@ public:
 
 private:
     void loadConfig();
+    void syncFile();
     string m_config_file;
     //key value
     // map<string, string> m_config_map;

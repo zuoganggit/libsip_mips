@@ -4,6 +4,7 @@
 #include "configServer.h"
 #include "json/value.h"
 #include "json/reader.h"
+#include "json/json.h"
 
 string config_file_path = "/system/etc/config.json";
 
@@ -72,14 +73,84 @@ void ConfigServer::loadConfig(){
     }
 
     if(value.isMember("net_config")){
-
+        if(value["net_config"].isMember("ip")){
+            m_netConfig.m_ip = value["net_config"]["ip"].asString();
+        }
+        if(value["net_config"].isMember("gateway")){
+            m_netConfig.m_gateway = value["net_config"]["gateway"].asString();
+        }
+        if(value["net_config"].isMember("netmask")){
+            m_netConfig.m_netmask = value["net_config"]["netmask"].asString();
+        }
+        if(value["net_config"].isMember("DNS")){
+            m_netConfig.m_dns = value["net_config"]["DNS"].asString();
+        }
     }
 
-    if(value.isMember("codec")){
-        
+    if(value.isMember("audio_codec")){
+        Json::Value audio_codecs = value["audio_codec"];
+        vector<Codec> codecs;
+        if(audio_codecs.isArray()){
+            for(int i=0; i< audio_codecs.size(); i++){
+                if(audio_codecs[i].isMember("codec")){
+                    string codec_str = audio_codecs[i]["codec"].asString();
+                    if(codec_str == "G711U"){
+                        codecs.push_back(G711U);
+                    }else if(codec_str == "G711A"){
+                        codecs.push_back(G711A);
+                    }else if(codec_str == "G722"){
+                        codecs.push_back(G722);
+                    }else if(codec_str == "OPUS"){
+                        codecs.push_back(OPUS);
+                    }
+                }
+            }
+            m_codecConfig.m_codec = codecs;
+        }
     }
 }
 
+
+void ConfigServer::syncFile(){
+    Json::Value root;
+    Json::Value sipconfig;
+    sipconfig["domain_name"] = m_sipConfig.m_sip_domain;
+    sipconfig["user_name"] = m_sipConfig.m_sip_username;
+    sipconfig["password"] = m_sipConfig.m_sip_password;
+    sipconfig["reg_expires"] = m_sipConfig.m_sip_expires;
+    for(int i = 0; i < m_sipConfig.m_out_accounts.size(); i++){
+        sipconfig["sip_outcall_account"][i]["account"] = m_sipConfig.m_out_accounts[i];
+    }
+    root["sip_config"] = sipconfig;
+
+    Json::Value netconfig;
+    netconfig["ip"] = m_netConfig.m_ip;
+    netconfig["gateway"] = m_netConfig.m_gateway;
+    netconfig["netmask"] = m_netConfig.m_netmask;
+    netconfig["DNS"] = m_netConfig.m_dns;
+    root["net_config"] = netconfig;
+
+    Json::Value codec_config;
+    for(int i = 0; i < m_codecConfig.m_codec.size(); i++){
+        Codec codec_enum = m_codecConfig.m_codec[i];
+        if(codec_enum == G711U){
+            codec_config[i]["codec"] = "G711U";
+        }else if(codec_enum == G711A){
+            codec_config[i]["codec"] = "G711A";
+        }else if(codec_enum == G722){
+            codec_config[i]["codec"] = "G722";
+        }else if(codec_enum == OPUS){
+            codec_config[i]["codec"] = "OPUS";
+        }
+    }
+    root["audio_codec"] = codec_config;
+    
+    Json::StyledWriter sw;
+    ofstream os;
+    os.open(config_file_path);
+    os << sw.write(root);
+    os.close();
+}
 
 bool ConfigServer::GetSipDomain(string& domain){
     if(m_config_value.isMember("sip_config") && 

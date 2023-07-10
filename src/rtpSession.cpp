@@ -212,18 +212,19 @@ void RtpSession::h264_Frame_RtpSend(const uint8_t* frameData, int frameSize){
                 // 找到 NALU 起始码
                 uint8_t* naluData = nalBuffer.data();
                 int naluSize = nalBuffer.size() - 4;
-
-
-                if(naluSize <= DEFAULT_MTU){
-                     //直接打包发送
-                     auto buffer = PackRTPPacket(m_sequenceNumber, m_timestamp, false, m_payloadType, 
-                        naluData, naluSize);
-                     if(m_socket > 0){
-                        sendto(m_socket, buffer->s_buffer, buffer->s_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
-                        m_sequenceNumber++;
-                     }
-                }else{ //分片发送
-                    h264_Frag_fu_a(naluData, naluSize, false);
+                
+                if(naluSize > 0){
+                    if(naluSize <= DEFAULT_MTU){
+                        //直接打包发送
+                        auto buffer = PackRTPPacket(m_sequenceNumber, m_timestamp, false, m_payloadType, 
+                            naluData, naluSize);
+                        if(m_socket > 0){
+                            sendto(m_socket, buffer->s_buffer, buffer->s_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+                            m_sequenceNumber++;
+                        }
+                    }else{ //分片发送
+                        h264_Frag_fu_a(naluData, naluSize, false);
+                    }
                 }
                 nalBuffer.clear();
             }
