@@ -386,8 +386,9 @@ bool SipSession::Stop(){
 }
 
 bool SipSession::CallOutgoing(const string &toUser){
-    if(m_is_calling){
+    if(m_is_calling || m_AudioStream_ptr->IsOpened()){
         cerr<<"is calling ,please close call"<<endl;
+        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
         return false;
     }
     if(!m_exited){
@@ -402,6 +403,7 @@ bool SipSession::CallOutgoing(const string &toUser){
         if (i != 0)
         {
             printf("eXosip_call_build_initial_invite fail\n");
+            m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
             return false;
         }
 
@@ -439,6 +441,7 @@ bool SipSession::CallOutgoing(const string &toUser){
         eXosip_unlock(m_context_eXosip);
         if(cid < 0){
             printf("eXosip_call_send_initial_invite fail\n");
+            m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
             return false;
         }
     }

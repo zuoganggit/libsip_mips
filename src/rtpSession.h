@@ -42,6 +42,7 @@ private:
     uint32_t m_timestamp;
     uint8_t m_payloadType;
     bool m_mark;
+    bool m_is_talk;
 
     shared_ptr<AudioStream> m_audio_ptr; 
     shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;

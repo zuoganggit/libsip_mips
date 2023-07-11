@@ -70,16 +70,20 @@ void CtrlProtocol::CallOutgoing(T21_Data *data){
         if(ConfigServer::GetInstance()->GetOutAccount(acount_index, dst_user)){
             if(SipSession::GetInstance()->CallOutgoing(dst_user)){
                 // resPayload.m_result = htonl(DB_Result_Success);
-                SendCallResult(DB_Result_Calling);
+                // SendCallResult(DB_Result_Calling);
                 return;
             }
         }else{
             cerr<<"CallNotify GetOutAccount fail index "<<acount_index<<endl;
+            SendCallResult(DB_Result_Failed);
+            return;
         }
     }else{
         cerr<<"CallNotify not found T21_Call_Req_Payload "<<endl;
+        SendCallResult(DB_Result_Failed);
+        return;
     }
-    SendCallResult(DB_Result_Failed);
+    // SendCallResult(DB_Result_Failed);
 }
 
 

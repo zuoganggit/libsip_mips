@@ -74,6 +74,7 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
     m_timestamp = 0;
     m_mark = true;
     m_payloadType = payloadType;
+    m_is_talk = false;
     if(type == Video){
         m_timestamp = 6000;
     }
@@ -143,6 +144,7 @@ void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
         m_destinationAddr = destinationAddr;
     }
     m_mark = true;
+    m_is_talk = false;
 }
 
 void RtpSession::SetPayloadType(uint8_t payloadType){
@@ -307,7 +309,6 @@ void RtpSession::run(){
         }
 
         m_opening = true;
-        bool is_talk = false;
         while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
             // 解析RTP头部
@@ -322,13 +323,13 @@ void RtpSession::run(){
                 uint8_t* payload = buffer + sizeof(RTPHeader);
                 if(rtpHeader->payloadType != m_payloadType){
                     cout<<"payloadType "<<rtpHeader->payloadType<<endl;
+                }else{
+                    if(!m_is_talk){
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
+                        m_is_talk = true;
+                    }
                 }
                 m_audio_ptr->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
-                
-                if(!is_talk){
-                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
-                    is_talk = true;
-                }
             }
         }
     }
