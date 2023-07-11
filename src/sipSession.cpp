@@ -140,7 +140,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << "payloads "<<payloads <<endl;
                 int payload = std::atoi(payloads);
-                video_rtp_session->SetPayloadType(uint8_t(payload));
+                // video_rtp_session->SetPayloadType(uint8_t(payload));
 
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
                  m_VideoStream_ptr->Open([this](uint8_t* data, int size){
@@ -195,7 +195,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << " video payloads "<<payloads <<endl;
             int payload = std::atoi(payloads);
-            video_rtp_session->SetPayloadType(uint8_t(payload));
+            // video_rtp_session->SetPayloadType(uint8_t(payload));
 
 
             video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
