@@ -4,6 +4,7 @@
 #include <memory>
 #include <map>
 #include <vector>
+#include <mutex>
 #include "json/value.h"
 using namespace std;
 
@@ -65,14 +66,15 @@ private:
     // map<string, string> m_config_map;
     Json::Value m_config_value;
 
-    Json::Value m_sip_config;
-    Json::Value m_account_config;
-    Json::Value m_net_config;
-    Json::Value m_codec_config;
+    // Json::Value m_sip_config;
+    // Json::Value m_account_config;
+    // Json::Value m_net_config;
+    // Json::Value m_codec_config;
 
     SipConfig m_sipConfig;
     NetConfig m_netConfig;
     CodecConfig m_codecConfig;
+    mutex m_config_mutex;
 };
 
 #endif

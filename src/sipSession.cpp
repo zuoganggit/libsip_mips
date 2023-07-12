@@ -119,8 +119,8 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                     " remoteAudioPort "<<remoteAudioPort<< " payloads "<< payloads<<endl;
                 
-                int payload = std::atoi(payloads);
-                audio_rtp_session->SetPayloadType(uint8_t(payload));
+                //int payload = std::atoi(payloads);
+                audio_rtp_session->SetPayloadType(0);
 
                 audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
                 m_AudioStream_ptr->Open([this](uint8_t* data, int size){
@@ -139,8 +139,9 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
                 cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << "payloads "<<payloads <<endl;
-                int payload = std::atoi(payloads);
-                // video_rtp_session->SetPayloadType(uint8_t(payload));
+                // int payload = std::atoi(payloads);
+
+                video_rtp_session->SetPayloadType(99);
 
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
                  m_VideoStream_ptr->Open([this](uint8_t* data, int size){
@@ -159,6 +160,8 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
     osip_message_t *answer = NULL;
 
     sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
+    int video_rtp_type = 99;
+    int audio_rtp_type = 0;
     if(sdp){
         // char *str_sdp = NULL;
         // sdp_message_to_str(sdp, &str_sdp);
@@ -177,8 +180,8 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                   " remoteAudioPort "<<remoteAudioPort<< " payload "<<payloads<<endl;
             
-            int payload = std::atoi(payloads);
-            audio_rtp_session->SetPayloadType(uint8_t(payload));
+            audio_rtp_type = std::atoi(payloads);
+            audio_rtp_session->SetPayloadType(0);
             audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
             m_AudioStream_ptr->Open([this](uint8_t* data, int size){
                     audio_rtp_session->BuildRtpAndSend(data, size);
@@ -194,9 +197,8 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
             cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << " video payloads "<<payloads <<endl;
-            int payload = std::atoi(payloads);
-            // video_rtp_session->SetPayloadType(uint8_t(payload));
-
+            video_rtp_type = std::atoi(payloads);
+            video_rtp_session->SetPayloadType(uint8_t(video_rtp_type));
 
             video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
             m_VideoStream_ptr->Open([this](uint8_t* data, int size){
@@ -233,14 +235,17 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 "m=audio %d RTP/AVP 0 8\r\n"
                 "a=rtpmap:0 PCMU/8000\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
-
-                "m=video %d RTP/AVP 99 \r\n"
-                "a=rtpmap:99 H264/90000 \r\n"
-                "a=fmtp:99  packetization-mode=1 \r\n"
-                // profile-level-id=42e01e;
-                // "a=sendonly \r\n"
+                "a=rtpmap:101 telephone-event/8000\r\n"
+                "a=fmtp:101 0-16\r\n"
+                "a=sendrecv\r\n"
+                "m=video %d RTP/AVP %d \r\n"
+                "a=rtpmap:%d H264/90000 \r\n"
+                "a=fmtp:%d  profile-level-id=428015 \r\n"
+                "a=sendonly \r\n"
                 // "a=ptime:40 \r\n"
-                , localip, localip, m_audio_rtp_local_port, m_video_rtp_local_port);
+                , localip, localip, 
+                m_audio_rtp_local_port,
+                 m_video_rtp_local_port, video_rtp_type, video_rtp_type, video_rtp_type);
 
         osip_message_set_body (answer, tmp, strlen (tmp));
         osip_message_set_content_type (answer, "application/sdp");
@@ -425,10 +430,15 @@ bool SipSession::CallOutgoing(const string &toUser){
                 "m=audio %d RTP/AVP 0 8\r\n"
                 "a=rtpmap:0 PCMU/8000\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
+                "a=rtpmap:101 telephone-event/8000\r\n"
+                "a=fmtp:101 0-16\r\n"
+                "a=sendrecv\r\n"
+
                 "m=video %d RTP/AVP 99 \r\n"
                 "a=rtpmap:99 H264/90000 \r\n"
-                "a=fmtp:99 packetization-mode=1 \r\n"
-                // "a=sendonly \r\n"
+                "a=fmtp:99 profile-level-id=428015\r\n"
+                //packetization-mode=1
+                "a=sendonly \r\n"
                 // "a=ptime:40 \r\n"
                 , localip, localip, m_audio_rtp_local_port, m_video_rtp_local_port);
                 // "a=rtpmap:101 telephone-event/8000\r\n"

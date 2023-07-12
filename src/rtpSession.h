@@ -43,6 +43,7 @@ private:
     uint8_t m_payloadType;
     bool m_mark;
     bool m_is_talk;
+    int m_open_mutex_channel;
 
     shared_ptr<AudioStream> m_audio_ptr; 
     shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;

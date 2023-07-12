@@ -6,6 +6,7 @@
 #include <mutex>
 #include <csignal>
 #include <thread>
+// #include "httplib.h"
 #include "sipSession.h"
 #include "configServer.h"
 #include "ctrlProtocol.h"
@@ -42,6 +43,46 @@ void SignalHandler(int signal)
     exitFlag = true;
     SendSignal();
 }
+
+
+// void httpServer(){
+
+//    httplib::Server svr;
+//    svr.Get("/api/sipconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+   
+//    svr.Post("/api/sipconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+
+//    svr.Get("/api/netconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+   
+//    svr.Post("/api/netconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+
+//    svr.Get("/api/codecconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+   
+//    svr.Post("/api/codecconfig", [](const httplib::Request &, httplib::Response &res) {
+// 		     res.set_content("Hello World!", "text/plain");
+// 		     });
+   
+//    svr.set_mount_point("/", "/root/exosip/git_libsip/libsip_mips/web/bootstrap-5.3.0-examples/");
+//    svr.set_mount_point("/", "/root/exosip/git_libsip/libsip_mips/web/bootstrap-5.3.0-examples/sidebars");
+   
+//    svr.set_file_extension_and_mimetype_mapping("css", "text/css");
+//    svr.set_file_extension_and_mimetype_mapping("html", "text/html");
+//    svr.set_file_extension_and_mimetype_mapping("mjs, js", "application/javascript");
+//    svr.set_file_extension_and_mimetype_mapping("json", "application/json");
+
+//    svr.listen("0.0.0.0", 8080);
+// }
+
 
 int main(int argc, char ** argv){
     std::signal(SIGINT, SignalHandler);
@@ -82,6 +123,8 @@ int main(int argc, char ** argv){
     // this_thread::sleep_for(chrono::seconds(5));
     // sipSessionPtr->CallOutgoing("1003");
     WaitForSignal();
+
+    // httpServer();
     return 0;
 }
 

@@ -75,6 +75,8 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
     m_mark = true;
     m_payloadType = payloadType;
     m_is_talk = false;
+    m_open_mutex_channel = 0;
+
     if(type == Video){
         m_timestamp = 6000;
     }
@@ -145,6 +147,7 @@ void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
     }
     m_mark = true;
     m_is_talk = false;
+    m_open_mutex_channel = 0;
 }
 
 void RtpSession::SetPayloadType(uint8_t payloadType){
@@ -278,18 +281,19 @@ void RtpSession::BuildRtpAndSend(
 
 
 
-
+#pragma pack(1)
 struct RTPHeader {
-    uint16_t version : 2;
-    uint16_t padding : 1;
-    uint16_t extension : 1;
-    uint16_t csrcCount : 4;
-    uint16_t marker : 1;
-    uint16_t payloadType : 7;
+    uint8_t version : 2;
+    uint8_t padding : 1;
+    uint8_t extension : 1;
+    uint8_t csrcCount : 4;
+    uint8_t marker : 1;
+    uint8_t payloadType : 7;
     uint16_t sequenceNumber;
     uint32_t timestamp;
     uint32_t ssrc;
 };
+#pragma pack()
 
 void RtpSession::run(){
     //recv audio rtp data
@@ -309,22 +313,37 @@ void RtpSession::run(){
         }
 
         m_opening = true;
+
         while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
             // 解析RTP头部
             if (bytesRead > 0 && bytesRead > sizeof(RTPHeader) 
                 && remoteAddr.sin_addr.s_addr == m_destinationAddr.sin_addr.s_addr &&
                     remoteAddr.sin_port == m_destinationAddr.sin_port) {
-                // cout<<"recv rtp size "<<bytesRead<<endl;
-                RTPHeader* rtpHeader = reinterpret_cast<RTPHeader*>(buffer);
-
+                RTPHeader* rtpHeader = (RTPHeader*)buffer;
                 // 根据需要访问RTP头部字段
-                uint16_t payloadType = ntohs(rtpHeader->payloadType);
-
+                uint8_t payloadType = buffer[1] & 0x7f;
                 // 计算负载内容的起始位置
                 uint8_t* payload = buffer + sizeof(RTPHeader);
-                if(rtpHeader->payloadType != m_payloadType){
-                    cout<<"payloadType "<<rtpHeader->payloadType<<endl;
+                if(payloadType != m_payloadType){
+                    if(payloadType == 101 || payloadType == 96){
+                        printf("DTMF event ");
+                        for(int i = 0; i <bytesRead-sizeof(RTPHeader); i++){
+                            printf("%x ", payload[i]);
+                        }
+                        printf("\n");
+                        if(payload[0] == 11){  //end
+                            if(m_open_mutex_channel > 0){
+                                //open mutex
+                                printf("open mutex  channel %d\n", m_open_mutex_channel);
+                                m_CtrlProtocol_ptr->OpenMutex(m_open_mutex_channel);
+                            }
+                            m_open_mutex_channel = 0;
+                        }else{
+                            m_open_mutex_channel = payload[0];
+                        }
+                        continue;
+                    }
                 }else{
                     if(!m_is_talk){
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
