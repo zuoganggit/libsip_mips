@@ -312,7 +312,9 @@ void RtpSession::run(){
         while(m_opening){
             ssize_t bytesRead = recvfrom(m_socket, buffer, buffer_size, 0, (struct sockaddr*)&remoteAddr, &addrLen);
             // 解析RTP头部
-            if (bytesRead > 0 && bytesRead >= sizeof(RTPHeader)) {
+            if (bytesRead > 0 && bytesRead > sizeof(RTPHeader) 
+                && remoteAddr.sin_addr.s_addr == m_destinationAddr.sin_addr.s_addr &&
+                    remoteAddr.sin_port == m_destinationAddr.sin_port) {
                 // cout<<"recv rtp size "<<bytesRead<<endl;
                 RTPHeader* rtpHeader = reinterpret_cast<RTPHeader*>(buffer);
 
