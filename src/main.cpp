@@ -115,13 +115,19 @@ int main(int argc, char ** argv){
     }
 
 
-    cout<<"sipper start ok"<<endl;
+    // cout<<"sipper start ok"<<endl;
     // this_thread::sleep_for(chrono::seconds(5));
     // sipSessionPtr->CallOutgoing("1003");
+
     // this_thread::sleep_for(chrono::seconds(10));
     // sipSessionPtr->TerminateCalling();
+
     // this_thread::sleep_for(chrono::seconds(5));
-    // sipSessionPtr->CallOutgoing("1003");
+    // sipSessionPtr->CallOutgoing("1007");
+
+    // this_thread::sleep_for(chrono::seconds(10));
+    // sipSessionPtr->TerminateCalling();
+
     WaitForSignal();
 
     // httpServer();

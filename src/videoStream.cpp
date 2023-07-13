@@ -157,7 +157,7 @@ void VideoStream::Close(){
 
 // void testSendH264File(FrameCallback callback){
 //     if(inputFile == nullptr){
-//         inputFile = new ifstream("video.h264", std::ios::binary);
+//         inputFile = new ifstream("video11.264", std::ios::binary);
 //     }
 
 //     uint8_t* naluData = nullptr;
@@ -173,7 +173,7 @@ void VideoStream::Close(){
 //                 if(frameBuffer.size() > 0){
 //                     callback((uint8_t *)frameBuffer.data(), frameBuffer.size());
 //                     frameBuffer.clear();
-//                     this_thread::sleep_for(chrono::milliseconds(64));
+//                     this_thread::sleep_for(chrono::milliseconds(40));
 //                 }
 //             }
 
@@ -186,17 +186,17 @@ void VideoStream::Close(){
 //             }
 //         }
 //     }else{
-//         cout<<"read video.h264 file end"<<endl;
+//         cout<<"read video11.264 file end"<<endl;
 //         inputFile->close();
 //         delete inputFile;
-//         inputFile = new ifstream("video.h264", std::ios::binary);
+//         inputFile = new ifstream("video11.264", std::ios::binary);
 //     }
     
 // }
 
 
 void VideoStream::run_new(){
-    cout<<"VideoStream::run  start"<<endl;
+    // cout<<"VideoStream::run  start"<<endl;
     // while(m_opening){
     //     if(m_frame_callback != nullptr){
     //         testSendH264File(m_frame_callback);
@@ -245,6 +245,7 @@ void VideoStream::run(){
         if(bytesRead > 0 && bytesRead > sizeof(T21_Data)){
             int commonId = ntohs(t_data->CommandID);
             if(commonId == DB_CMD_Send_Media_Request_EX){
+                // printf("recv t21 video data\n");
                 T21_Send_Media_ReqEx_Payload *t21payload = (T21_Send_Media_ReqEx_Payload *)t_data->Payload;
                 if(bytesRead >= sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload)){
                    int data_len = bytesRead - sizeof(T21_Data) - sizeof(T21_Send_Media_ReqEx_Payload);

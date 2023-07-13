@@ -171,6 +171,7 @@ void CtrlProtocol::OpenAudioChannel(){
 }
 
 void CtrlProtocol::OpenVideoChannel(){
+    printf("!!!!!!! OpenVideoChannel \n");
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Play_Request);
@@ -193,6 +194,7 @@ void CtrlProtocol::OpenVideoChannel(){
 }
 
 void CtrlProtocol::CloseAudioChannel(){
+    printf("!!!!!!! CloseAudioChannel \n");
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Stop_Request);
@@ -222,6 +224,7 @@ void CtrlProtocol::CloseAudioChannel(){
 }
 
 void CtrlProtocol::CloseVideoChannel(){
+    printf("!!!!!!! CloseVideoChannel \n");
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Stop_Request);

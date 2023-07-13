@@ -119,8 +119,8 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                     " remoteAudioPort "<<remoteAudioPort<< " payloads "<< payloads<<endl;
                 
-                //int payload = std::atoi(payloads);
-                audio_rtp_session->SetPayloadType(0);
+                int payload = std::atoi(payloads);
+                audio_rtp_session->SetPayloadType(payload);
 
                 audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
                 m_AudioStream_ptr->Open([this](uint8_t* data, int size){
@@ -139,9 +139,9 @@ void SipSession::callAnswered(eXosip_event_t *event){
                 char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
                 cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << "payloads "<<payloads <<endl;
-                // int payload = std::atoi(payloads);
+                int payload = std::atoi(payloads);
 
-                video_rtp_session->SetPayloadType(99);
+                video_rtp_session->SetPayloadType(payload);
 
                 video_rtp_session->SetRemoteAddr(remote_video_addr.c_str(), atoi(remoteVideoPort.c_str()));
                  m_VideoStream_ptr->Open([this](uint8_t* data, int size){
@@ -240,8 +240,9 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 "a=sendrecv\r\n"
                 "m=video %d RTP/AVP %d \r\n"
                 "a=rtpmap:%d H264/90000 \r\n"
-                "a=fmtp:%d  profile-level-id=428015 \r\n"
-                "a=sendonly \r\n"
+                "a=fmtp:%d  packetization-mode=1\r\n"
+                // profile-level-id=428015
+                // "a=sendonly \r\n"
                 // "a=ptime:40 \r\n"
                 , localip, localip, 
                 m_audio_rtp_local_port,
@@ -436,9 +437,8 @@ bool SipSession::CallOutgoing(const string &toUser){
 
                 "m=video %d RTP/AVP 99 \r\n"
                 "a=rtpmap:99 H264/90000 \r\n"
-                "a=fmtp:99 profile-level-id=428015\r\n"
-                //packetization-mode=1
-                "a=sendonly \r\n"
+                "a=fmtp:99 packetization-mode=1\r\n"
+                // "a=sendonly \r\n"
                 // "a=ptime:40 \r\n"
                 , localip, localip, m_audio_rtp_local_port, m_video_rtp_local_port);
                 // "a=rtpmap:101 telephone-event/8000\r\n"
