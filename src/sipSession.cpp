@@ -238,11 +238,12 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 "a=rtpmap:101 telephone-event/8000\r\n"
                 "a=fmtp:101 0-16\r\n"
                 "a=sendrecv\r\n"
-                "m=video %d RTP/AVP %d \r\n"
-                "a=rtpmap:%d H264/90000 \r\n"
-                "a=fmtp:%d  packetization-mode=1\r\n"
+                "m=video %d RTP/AVP %d\r\n"
+                "a=rtpmap:%d H264/90000\r\n"
+                "a=fmtp:%d packetization-mode=1\r\n"
+                // "a=ssrc:16909060\r\n"
                 // profile-level-id=428015
-                // "a=sendonly \r\n"
+                "a=sendrecv\r\n"
                 // "a=ptime:40 \r\n"
                 , localip, localip, 
                 m_audio_rtp_local_port,

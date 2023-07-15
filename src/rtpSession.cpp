@@ -52,10 +52,18 @@ shared_ptr<Buffer> PackRTPPacket(uint16_t sequenceNumber, uint32_t timestamp, bo
     buffer[7] = timestamp & 0xFF;
 
     // SSRC (同步源标识符) 字段为 0
-    buffer[8] = 1;
-    buffer[9] = 2;
-    buffer[10] = 3;
-    buffer[11] = 4;
+    if(payloadType != 0){
+        buffer[8] = 1;
+        buffer[9] = 2;
+        buffer[10] = 3;
+        buffer[11] = 4;
+    }else{
+        buffer[8] = 3;
+        buffer[9] = 4;
+        buffer[10] = 5;
+        buffer[11] = 6;
+    }
+    
 
     // 将负载数据复制到缓冲区
     memcpy(buffer + 12, payload, payloadSize);
@@ -156,10 +164,17 @@ void RtpSession::SetPayloadType(uint8_t payloadType){
 
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
-#define DEFAULT_MTU 1440
+#define DEFAULT_MTU 1400
 
 void RtpSession::h264_Frag_fu_a(uint8_t *nal, int fragsize, bool mark)
 {
+    // if(nal[0] == 0x68){
+    //     printf("pps print ");
+    //     for(int i =0; i < fragsize; i ++){
+    //         printf(" %x ", nal[i]);
+    //     }
+    //     printf("\n");
+    // }
     int start = 1, fraglen;
     uint8_t fu_header, buf[DEFAULT_MTU];
 
