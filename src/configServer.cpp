@@ -338,3 +338,27 @@ bool ConfigServer::GetLocalAddr(string& addr){
 
     return false;
 }
+
+string ConfigServer::GetSipConfigString(){
+    lock_guard<mutex> guard(m_config_mutex);
+    if(m_config_value.isMember("sip_config")){
+        return m_config_value["sip_config"].toStyledString();
+    }
+    return "not found";
+}
+
+string ConfigServer::GetNetConfigString(){
+    lock_guard<mutex> guard(m_config_mutex);
+    if(m_config_value.isMember("net_config")){
+        return m_config_value["net_config"].toStyledString();
+    }
+    return "not found";
+}
+
+string ConfigServer::GetAudioCodecConfigString(){
+    lock_guard<mutex> guard(m_config_mutex);
+    if(m_config_value.isMember("audio_codec")){
+        return m_config_value["audio_codec"].toStyledString();
+    }
+    return "not found";
+}

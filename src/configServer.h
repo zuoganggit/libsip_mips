@@ -57,7 +57,10 @@ public:
     bool SaveNetConfig(Json::Value& value, bool syncFile=true);
     bool SaveAccountConfig(Json::Value& value, bool syncFile=true);
     bool SaveCodecConfig(Json::Value& value, bool syncFile=true);
-
+    
+    string GetSipConfigString();
+    string GetNetConfigString();
+    string GetAudioCodecConfigString();
 private:
     void loadConfig();
     void syncFile();
