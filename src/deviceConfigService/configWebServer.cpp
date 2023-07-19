@@ -12,7 +12,8 @@ void httpServer(){
         {"Access-Control-Allow-Credentials", "true"}
     });
 
-   svr.set_mount_point("/", "/root/exosip/git_libsip/libsip_mips/mips_web");
+   // svr.set_mount_point("/", "/root/exosip/git_libsip/libsip_mips/mips_web");
+   svr.set_mount_point("/", "./mips_web");
 //    svr.set_mount_point("/", "/root/exosip/git_libsip/libsip_mips/web/bootstrap-5.3.0-examples/sidebars");
    
 

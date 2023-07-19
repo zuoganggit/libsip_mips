@@ -43,6 +43,8 @@ typedef enum{
     DB_CMD_Query_RegStatus_Result = 0x26,
     DB_CMD_Call_Request = 0xF1,
     DB_CMD_Call_Result = 0xF2,
+    DB_CMD_Tunnel_Request = 0x1E,
+    DB_CMD_Tunnel_Result = 0x1F
 }T21_Cmd_Type;
 
 
@@ -161,6 +163,19 @@ typedef struct{
 typedef struct{
     uint32_t  m_reson; // 挂断的原因：1=用户强制挂断；
 }T21_HangUp_Req_Payload;
+
+
+typedef struct{
+    uint32_t	m_tunnelmode;	    //透传模式(类似于DTMF具体的传递方式)
+    uint32_t	m_datalen;	    //透传数据的长度
+    uint8_t	    m_data[0];	// 透传数据
+}T21_DB_CMD_Tunnel_Req_Payload;
+
+typedef struct{
+    uint32_t	m_tunnelmode;	    //透传模式(类似于DTMF具体的传递方式)
+    uint32_t	m_datalen;	    //透传数据的长度
+    uint8_t	    m_data[0];	// 透传数据
+}T21_DB_CMD_Tunnel_Res_Payload;
 
 #pragma pack()
 #endif

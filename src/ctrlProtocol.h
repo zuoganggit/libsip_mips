@@ -31,6 +31,10 @@ public:
     void StopOutgoing(T21_Data *data);
     void SendRegStatus(T21_Data *data);
     void SendCallResult(Result_e ret);
+
+    void TunnelDataHandle(T21_Data *data);
+    void SendTunnelData(uint8_t* data, int size);
+
     void Init();
 private:
     bool openUdpSocket();

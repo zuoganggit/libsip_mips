@@ -91,7 +91,7 @@ void VideoStream::Close(){
     m_frame_callback = nullptr;
 }
 
-#if 1
+#if 0
 #include <fstream>
 #include <thread>
 #include <iostream>

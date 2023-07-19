@@ -346,6 +346,10 @@ void SipSession::sipRun(){
                     // osip_message_to_str(event->request, &message_str, &message_size);
                     osip_message_get_body(event->request, 0, &body);
                     if(body){
+                        if(body->length > 0){
+                            m_CtrlProtocol_ptr->SendTunnelData((uint8_t*)body->body, body->length);
+                        }
+                        
                         unordered_map<string, string> keyValuePairs = parseKeyValuePairs(body->body);
                         if (keyValuePairs.count("Signal") > 0) {
                             string signalValue = keyValuePairs["Signal"];
@@ -391,6 +395,26 @@ bool SipSession::Stop(){
     m_sip_run_future.wait();
     return true;
 }
+
+void SipSession::SendTunnel(uint8_t *data, int size){
+    if(nullptr == data){
+        return;
+    }
+    osip_message_t *request = nullptr;
+    if(eXosip_call_build_info(m_context_eXosip, m_call_did, &request) < 0){
+        printf("eXosip_call_build_info fail\n");
+        return;
+    }
+
+    if(request){
+        osip_message_set_body(request, (const char *)data, size);
+        eXosip_lock(m_context_eXosip);
+        eXosip_call_send_request(m_context_eXosip, m_call_did, request);
+        eXosip_unlock(m_context_eXosip);
+    }
+
+}
+
 
 bool SipSession::CallOutgoing(const string &toUser){
     if(m_is_calling || m_AudioStream_ptr->IsOpened()){

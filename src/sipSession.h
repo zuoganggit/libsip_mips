@@ -23,6 +23,7 @@ public:
     bool Start();
     bool Stop();
 
+    void SendTunnel(uint8_t *data, int size);
     bool CallOutgoing(const string& toUser);
     int TerminateCalling();
     bool GetRegStatus();

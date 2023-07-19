@@ -141,6 +141,48 @@ void CtrlProtocol::SendRegStatus(T21_Data *data){
     delete[] buffer;
 }
 
+
+void CtrlProtocol::TunnelDataHandle(T21_Data *data){
+    T21_DB_CMD_Tunnel_Req_Payload *payload = (T21_DB_CMD_Tunnel_Req_Payload *)data->Payload;
+    if(payload != nullptr){
+        uint32_t datalen = ntohl(payload->m_datalen);
+        //send sip info message
+        printf("TunnelDataHandle datalen %d\n", datalen);
+        if(datalen > 0){
+            SipSession::GetInstance()->SendTunnel(payload->m_data, payload->m_datalen);
+        }
+    }
+}
+
+
+void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
+    printf("SendTunnelData size %d\n", size);
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = htons(DB_CMD_Tunnel_Result);
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
+
+    int buffer_size = size + sizeof(T21_DB_CMD_Tunnel_Res_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+
+    T21_DB_CMD_Tunnel_Res_Payload resPayload = {0};
+    resPayload.m_datalen = htonl(uint32_t(size));
+    uint8_t * dataBuffer = data;
+    memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_DB_CMD_Tunnel_Res_Payload));
+    memcpy(buffer+sizeof(T21_Data)+sizeof(T21_DB_CMD_Tunnel_Res_Payload), data, size);
+
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    delete[] buffer;
+}
+
+
 void CtrlProtocol::OpenAudioChannel(){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
@@ -246,6 +288,8 @@ void CtrlProtocol::CloseVideoChannel(){
 }
 
 
+
+
 bool CtrlProtocol::openUdpSocket(){
     m_t21_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (m_t21_socket < 0) {
@@ -317,6 +361,9 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         break;
     case DB_CMD_HangUp_Request:
         StopOutgoing(data);
+        break;
+    case DB_CMD_Tunnel_Request:
+        TunnelDataHandle(data);
         break;
     default:
         break;
