@@ -15,6 +15,7 @@ shared_ptr<ConfigServer> ConfigServer::GetInstance(){
 ConfigServer::ConfigServer(const string& file_path){
     m_config_file = file_path;
     Init();
+    loadConfig();
 }
 ConfigServer::~ConfigServer(){
 }
@@ -32,31 +33,30 @@ void ConfigServer::loadConfig(){
     ifstream file(m_config_file);
     char buffer[1024*2] = {0};
     file.read(buffer, sizeof(buffer));
-    printf("config file %s\n", buffer);
+    // printf("config file %s\n", buffer);
     Json::Reader reader;
     Json::Value value;
     reader.parse(buffer, value);
 
     if(value.isMember("sip_config")){
-        SipConfig sipconfig;
         if(value["sip_config"].isMember("domain_name")){
-            sipconfig.m_sip_domain = value["sip_config"]["domain_name"].asString();
+            m_sipConfig.m_sip_domain = value["sip_config"]["domain_name"].asString();
         }
 
         if(value["sip_config"].isMember("user_name")){
-            sipconfig.m_sip_username = value["sip_config"]["user_name"].asString();
+            m_sipConfig.m_sip_username = value["sip_config"]["user_name"].asString();
         }
 
         if(value["sip_config"].isMember("password")){
-            sipconfig.m_sip_password = value["sip_config"]["password"].asString();
+            m_sipConfig.m_sip_password = value["sip_config"]["password"].asString();
         }
 
         if(value["sip_config"].isMember("reg_expires")){
-            sipconfig.m_sip_expires = value["sip_config"]["reg_expires"].asInt();
+            m_sipConfig.m_sip_expires = value["sip_config"]["reg_expires"].asInt();
         }
 
         if(value["sip_config"].isMember("reg_period")){
-            sipconfig.m_sip_period = value["sip_config"]["reg_period"].asInt();
+            m_sipConfig.m_sip_period = value["sip_config"]["reg_period"].asInt();
         }
 
         if(value["sip_config"].isMember("sip_outcall_account")){
@@ -64,12 +64,27 @@ void ConfigServer::loadConfig(){
              if(accounts.isArray()){
                 for(int i=0; i< accounts.size(); i++){
                     if(accounts[i].isMember("account")){
-                        sipconfig.m_out_accounts.push_back(accounts[i]["account"].asString());
+                        m_sipConfig.m_out_accounts.push_back(accounts[i]["account"].asString());
                     }
                 }
              }
         }
-        m_sipConfig = sipconfig;
+
+        if(value["sip_config"].isMember("sip_proxy")){
+            Json::Value proxy_json = value["sip_config"]["sip_proxy"];
+            if(proxy_json.isMember("addr")){
+                m_sipConfig.m_proxy.m_addr = proxy_json["addr"].asString();
+            }
+            if(proxy_json.isMember("port")){
+                m_sipConfig.m_proxy.m_port = proxy_json["port"].asInt();
+            }
+            if(proxy_json.isMember("user_name")){
+                m_sipConfig.m_proxy.m_username = proxy_json["user_name"].asString();
+            }
+            if(proxy_json.isMember("password")){
+                m_sipConfig.m_proxy.m_password = proxy_json["password"].asString();
+            }
+        }
     }
 
     if(value.isMember("net_config")){
@@ -152,8 +167,6 @@ void ConfigServer::syncFile(){
     os << sw.write(root);
     os.close();
 }
-
-
 
 bool ConfigServer::SaveSipConfig(Json::Value& value, bool sync){
     lock_guard<mutex> guard(m_config_mutex);
@@ -361,4 +374,10 @@ string ConfigServer::GetAudioCodecConfigString(){
         return m_config_value["audio_codec"].toStyledString();
     }
     return "not found";
+}
+
+bool ConfigServer::GetSipProxy(SipProxy& proxy){
+    lock_guard<mutex> guard(m_config_mutex);
+    proxy = m_sipConfig.m_proxy;
+    return true;
 }

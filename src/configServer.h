@@ -8,6 +8,12 @@
 #include "json/value.h"
 using namespace std;
 
+typedef struct{
+    string m_addr;
+    int m_port;
+    string m_username;
+    string m_password;
+}SipProxy;
 
 typedef struct{
     string m_sip_domain;
@@ -16,6 +22,7 @@ typedef struct{
     int m_sip_expires;
     int m_sip_period;
     vector<string> m_out_accounts;
+    SipProxy m_proxy;
 }SipConfig;
 
 
@@ -52,6 +59,7 @@ public:
     bool GetOutAccount(int index, string& account);
     bool GetLocalAddr(string& addr);
     Codec GetCodec();
+    bool GetSipProxy(SipProxy& proxy);
 
     bool SaveSipConfig(Json::Value& value, bool syncFile=true);
     bool SaveNetConfig(Json::Value& value, bool syncFile=true);
