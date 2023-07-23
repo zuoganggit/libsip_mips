@@ -159,7 +159,7 @@ void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
     printf("SendTunnelData size %d\n", size);
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
-    t21_data.CommandID = htons(DB_CMD_Tunnel_Result);
+    t21_data.CommandID = htons(DB_CMD_Tunnel_Request);
     t21_data.Version = 0x01;
     t21_data.CommandFlag = htonl(0x12);
     t21_data.TotalSegment = htons(0x01);
@@ -183,7 +183,7 @@ void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
 }
 
 
-void CtrlProtocol::OpenAudioChannel(){
+void CtrlProtocol::OpenAudioInChannel(AudioEncodeType_e audioType){
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Play_Request);
@@ -195,22 +195,69 @@ void CtrlProtocol::OpenAudioChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
-    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    T21_Ctrl_Open_Media_Payload payload = {(uint32_t)htonl(1), (uint8_t)audioType, (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
+    int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Open_Media_Payload));
 
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
-    
-    T21_Ctrl_Media_Payload payload1 = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
-    int buffer_size1 = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
-    
-    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Media_Payload));
+    delete[] buffer;
+}
+
+
+void CtrlProtocol::OpenAudioOutChannel(AudioEncodeType_e audioType){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = htons(DB_CMD_Play_Request);
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
+
+
+    T21_Ctrl_Open_Media_Payload payload1 = {(uint32_t)htonl(1), (uint8_t)ET_G711U, (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+    int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
+    uint8_t * buffer = new uint8_t[buffer_size];
+
+    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Open_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
 
     delete[] buffer;
+
 }
+
+// void CtrlProtocol::OpenAudioChannel(){
+//     T21_Data t21_data = {0};
+//     t21_data.GroupCode = 0xDB;
+//     t21_data.CommandID = htons(DB_CMD_Play_Request);
+//     t21_data.Version = 0x01;
+//     t21_data.CommandFlag = htonl(0x12);
+//     t21_data.TotalSegment = htons(0x01);
+//     t21_data.SubSegment = htons(0x01);
+//     t21_data.SegmentFlag = htons(0x01);
+//     t21_data.Reserved1 = 0;
+//     t21_data.Reserved2 = 0;
+
+//     T21_Ctrl_Open_Media_Payload payload = {(uint32_t)htonl(1), (uint8_t)ET_G711U, (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
+//     int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
+//     uint8_t * buffer = new uint8_t[buffer_size];
+//     memcpy(buffer, &t21_data, sizeof(T21_Data));
+//     memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Open_Media_Payload));
+
+//     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    
+//     T21_Ctrl_Open_Media_Payload payload1 = {(uint32_t)htonl(1), (uint8_t)ET_G711U, (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+//     int buffer_size1 = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
+    
+//     memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Open_Media_Payload));
+//     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+
+//     delete[] buffer;
+// }
 
 void CtrlProtocol::OpenVideoChannel(){
     printf("!!!!!!! OpenVideoChannel \n");
@@ -225,11 +272,11 @@ void CtrlProtocol::OpenVideoChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_VIDEO)};
-    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    T21_Ctrl_Open_Media_Payload payload = {htonl(1), (uint8_t)ET_G711U, htonl(DB_MediaMode_VIDEO)};
+    int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Open_Media_Payload));
 
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
     delete[] buffer;
@@ -248,18 +295,18 @@ void CtrlProtocol::CloseAudioChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_AUDIO_Capture)};
-    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    T21_Ctrl_Close_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_AUDIO_Capture)};
+    int buffer_size = sizeof(T21_Ctrl_Close_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Close_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
     
     
-    T21_Ctrl_Media_Payload payload1 = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
-    int buffer_size1 = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    T21_Ctrl_Close_Media_Payload payload1 = {(uint32_t)htonl(1), (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+    int buffer_size1 = sizeof(T21_Ctrl_Close_Media_Payload) + sizeof(T21_Data);
     
-    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Media_Payload));
+    memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Close_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
 
     delete[] buffer;
@@ -278,11 +325,11 @@ void CtrlProtocol::CloseVideoChannel(){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_VIDEO)};
-    int buffer_size = sizeof(T21_Ctrl_Media_Payload) + sizeof(T21_Data);
+    T21_Ctrl_Close_Media_Payload payload = {htonl(1), htonl(DB_MediaMode_VIDEO)};
+    int buffer_size = sizeof(T21_Ctrl_Close_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
-    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Media_Payload));
+    memcpy(buffer+sizeof(T21_Data), &payload, sizeof(T21_Ctrl_Close_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
     delete[] buffer;
 }

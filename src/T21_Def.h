@@ -55,6 +55,15 @@ typedef enum
     DB_MediaMode_AUDIO_Play	= 0x00000004	//音频播放
 } MediaMode_e;
 
+
+typedef enum
+{
+	ET_PCM   = 3,
+    ET_G711U = 5,
+    ET_G711A = 6,
+} AudioEncodeType_e;
+
+
 typedef enum
 {
     DB_Result_Success		    = 0x0000,	//成功
@@ -77,11 +86,20 @@ typedef enum
 
 
 //打开/关闭音频视频 通道
-//CommandID: DB_CMD_Play_Request  DB_CMD_Stop_Request
+//CommandID: DB_CMD_Play_Request
+typedef struct{
+    uint32_t	m_channelid;	// 设备通道ID
+    uint8_t	    m_audioencodetype;	// 音频编码类型,见AudioEncodeType_e
+	uint32_t	m_mediamode;	// 播放类型, 见MediaMode_e
+}T21_Ctrl_Open_Media_Payload;
+
+//CommandID: DB_CMD_Stop_Request
 typedef struct{
     uint32_t	m_channelid;	// 设备通道ID
 	uint32_t	m_mediamode;	// 播放类型, 见MediaMode_e
-}T21_Ctrl_Media_Payload;
+}T21_Ctrl_Close_Media_Payload;
+
+
 //CommandID: DB_CMD_Play_Result DB_CMD_Stop_Result
 typedef struct{
     uint32_t	m_result;	    // 请求回应的状态码, 见Result_e

@@ -78,6 +78,10 @@ int main(int argc, char ** argv){
         return -1;
     }
 
+    // this_thread::sleep_for(chrono::seconds(3));
+    // sipSessionPtr->CallOutgoing("1003");
+    // this_thread::sleep_for(chrono::seconds(3));
+    // sipSessionPtr->TerminateCalling();
     WaitForSignal();
     return 0;
 }

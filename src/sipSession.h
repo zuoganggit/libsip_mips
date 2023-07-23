@@ -30,7 +30,7 @@ public:
 private:
     void openMutexCtl(int channel);
     void sipRun();
-    void callAnswered(eXosip_event_t *event); 
+    void callAckAnswered(eXosip_event_t *event); 
     void callByed(eXosip_event_t *event);
 
     void outCallAnswer(eXosip_event_t* event);

@@ -97,8 +97,11 @@ void ConfigServer::loadConfig(){
         if(value["net_config"].isMember("netmask")){
             m_netConfig.m_netmask = value["net_config"]["netmask"].asString();
         }
-        if(value["net_config"].isMember("DNS")){
-            m_netConfig.m_dns = value["net_config"]["DNS"].asString();
+        if(value["net_config"].isMember("DNS1")){
+            m_netConfig.m_dns1 = value["net_config"]["DNS1"].asString();
+        }
+        if(value["net_config"].isMember("DNS2")){
+            m_netConfig.m_dns2 = value["net_config"]["DNS2"].asString();
         }
     }
 
@@ -111,6 +114,8 @@ void ConfigServer::loadConfig(){
                     string codec_str = audio_codecs[i]["codec"].asString();
                     if(codec_str == "G711U"){
                         codecs.push_back(G711U);
+                    }else if(codec_str == "PCM"){
+                        codecs.push_back(PCM);
                     }else if(codec_str == "G711A"){
                         codecs.push_back(G711A);
                     }else if(codec_str == "G722"){
@@ -125,7 +130,7 @@ void ConfigServer::loadConfig(){
     }
 }
 
-
+#if 0
 void ConfigServer::syncFile(){
     Json::Value root;
     Json::Value sipconfig;
@@ -142,7 +147,8 @@ void ConfigServer::syncFile(){
     netconfig["ip"] = m_netConfig.m_ip;
     netconfig["gateway"] = m_netConfig.m_gateway;
     netconfig["netmask"] = m_netConfig.m_netmask;
-    netconfig["DNS"] = m_netConfig.m_dns;
+    netconfig["DNS1"] = m_netConfig.m_dns1;
+    netconfig["DNS1"] = m_netConfig.m_dns2;
     root["net_config"] = netconfig;
 
     Json::Value codec_config;
@@ -150,6 +156,8 @@ void ConfigServer::syncFile(){
         Codec codec_enum = m_codecConfig.m_codec[i];
         if(codec_enum == G711U){
             codec_config[i]["codec"] = "G711U";
+        }else if(codec_enum == PCM){
+            codec_config[i]["codec"] = "PCM";
         }else if(codec_enum == G711A){
             codec_config[i]["codec"] = "G711A";
         }else if(codec_enum == G722){
@@ -228,8 +236,12 @@ bool ConfigServer::SaveNetConfig(Json::Value& value, bool sync){
         m_netConfig.m_netmask = value["net_config"]["netmask"].asString();
     }
 
-    if(value["net_config"].isMember("DNS")){
-        m_netConfig.m_dns = value["net_config"]["DNS"].asString();
+    if(value["net_config"].isMember("DNS1")){
+        m_netConfig.m_dns1 = value["net_config"]["DNS1"].asString();
+    }
+
+    if(value["net_config"].isMember("DNS2")){
+        m_netConfig.m_dns2 = value["net_config"]["DNS2"].asString();
     }
 
     if(sync){
@@ -256,6 +268,8 @@ bool ConfigServer::SaveCodecConfig(Json::Value& value, bool sync){
             string codec_str = audio_codecs[i]["codec"].asString();
             if(codec_str == "G711U"){
                 m_codecConfig.m_codec.push_back(G711U);
+            }else if(codec_str == "PCM"){
+                m_codecConfig.m_codec.push_back(PCM);
             }else if(codec_str == "G711A"){
                 m_codecConfig.m_codec.push_back(G711A);
             }else if(codec_str == "G722"){
@@ -270,6 +284,7 @@ bool ConfigServer::SaveCodecConfig(Json::Value& value, bool sync){
     }
     return true;
 }
+#endif
 
 bool ConfigServer::GetSipDomain(string& domain){
     lock_guard<mutex> guard(m_config_mutex);
@@ -332,7 +347,9 @@ bool ConfigServer::GetOutAccount(int index, string& account){
         if(accounts.isArray() &&accounts.isValidIndex(iIndex)){
             if(accounts[iIndex].isMember("account")){
                 account = accounts[iIndex]["account"].asString();
-                return true;
+                if(account != ""){
+                    return true;
+                }
             }
         }
     }
@@ -351,6 +368,34 @@ bool ConfigServer::GetLocalAddr(string& addr){
 
     return false;
 }
+
+
+string ConfigServer::CodecString(Codec codec){
+    if(codec == PCM){   
+        return "L16";
+    }else if(codec == G711U){
+        return "PCMU";
+    }else if(codec == G711A){
+        return "PCMA";
+    }
+
+    return "PCMU";
+}
+
+vector<Codec> ConfigServer::GetAudioCodec(){
+    vector<Codec> codecs;
+    for(auto i :m_codecConfig.m_codec){
+        if(i == PCM || i == G711A || i == G711U){
+            codecs.push_back(i);
+        }
+    }
+    
+    if(codecs.empty()){
+        codecs.push_back(G711U);
+    }
+    return codecs;
+}
+
 
 string ConfigServer::GetSipConfigString(){
     lock_guard<mutex> guard(m_config_mutex);

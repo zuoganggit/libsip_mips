@@ -20,7 +20,8 @@ public:
     bool Start();
     bool Stop();
     void SetRemoteAddr(const string& dstAddr, int dstPort);
-    void SetPayloadType(uint8_t payloadType);
+    void SetCodecType(AudioEncodeType_e type);
+    void SetPayloadType(uint8_t payloadType, uint8_t telePayloadType = 101);
     void BuildRtpAndSend(const uint8_t* payload, size_t payloadSize);
 private:
     void h264_Frame_RtpSend(const uint8_t* frameData, int frameSize);
@@ -41,6 +42,9 @@ private:
     uint16_t m_sequenceNumber;
     uint32_t m_timestamp;
     uint8_t m_payloadType;
+    uint8_t m_telePayType;
+
+    AudioEncodeType_e m_audioInType;
     bool m_mark;
     bool m_is_talk;
     int m_open_mutex_channel;

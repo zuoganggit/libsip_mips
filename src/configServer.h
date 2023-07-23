@@ -30,10 +30,12 @@ typedef struct{
     string m_ip;
     string m_gateway;
     string m_netmask;
-    string m_dns;
+    string m_dns1;
+    string m_dns2;
 }NetConfig;
 
 typedef enum{
+    PCM,
     G711U,
     G711A,
     G722,
@@ -58,20 +60,21 @@ public:
     bool GetRegPeriod(int& period);
     bool GetOutAccount(int index, string& account);
     bool GetLocalAddr(string& addr);
-    Codec GetCodec();
+    vector<Codec> GetAudioCodec();
+    string CodecString(Codec codec);
     bool GetSipProxy(SipProxy& proxy);
 
-    bool SaveSipConfig(Json::Value& value, bool syncFile=true);
-    bool SaveNetConfig(Json::Value& value, bool syncFile=true);
-    bool SaveAccountConfig(Json::Value& value, bool syncFile=true);
-    bool SaveCodecConfig(Json::Value& value, bool syncFile=true);
+    // bool SaveSipConfig(Json::Value& value, bool syncFile=true);
+    // bool SaveNetConfig(Json::Value& value, bool syncFile=true);
+    // bool SaveAccountConfig(Json::Value& value, bool syncFile=true);
+    // bool SaveCodecConfig(Json::Value& value, bool syncFile=true);
     
     string GetSipConfigString();
     string GetNetConfigString();
     string GetAudioCodecConfigString();
 private:
     void loadConfig();
-    void syncFile();
+    // void syncFile();
     string m_config_file;
     //key value
     // map<string, string> m_config_map;

@@ -13,6 +13,7 @@ AudioStream::AudioStream(int t21port){
     m_opening = false;
     m_t21_port = t21port;
     m_frame_callback = nullptr;
+    m_inEncodeType = ET_G711U;
     Init();
 }
     
@@ -75,11 +76,14 @@ bool AudioStream::Init(){
 
     return true;
 }
-void AudioStream::Open(FrameCallback callback){
+
+void AudioStream::Open(FrameCallback callback, AudioEncodeType_e in_type, AudioEncodeType_e out_type){
     if(!m_opening){
         m_opening = true;
         //send open Audio Stream to T21
-        CtrlProtocol::GetInstance()->OpenAudioChannel();
+        CtrlProtocol::GetInstance()->OpenAudioOutChannel(out_type);
+        CtrlProtocol::GetInstance()->OpenAudioInChannel(in_type);
+        m_inEncodeType = in_type;
     }
     else{
         return;
@@ -91,6 +95,24 @@ void AudioStream::Open(FrameCallback callback){
         this->run();
     });
 }
+
+// void AudioStream::Open(FrameCallback callback){
+//     if(!m_opening){
+//         m_opening = true;
+//         //send open Audio Stream to T21
+//         CtrlProtocol::GetInstance()->OpenAudioChannel();
+//     }
+//     else{
+//         return;
+//         // Close();
+//     }
+
+//     m_frame_callback = callback;
+//     m_stream_run_future = std::async(std::launch::async, [this](){
+//         this->run();
+//     });
+// }
+
 bool AudioStream::IsOpened(){
     return m_opening;
 }
@@ -117,7 +139,7 @@ void AudioStream::WriteAudioFrame(uint8_t* data, int dataSize){
     t21_data.Reserved2 = 0;
 
     T21_Send_Media_ReqEx_Payload t21payload = {htonl(1), htonl(1),
-        0, 0, htonl(dataSize)};
+        0, m_inEncodeType, htonl(dataSize)};
     
     int buffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + dataSize;
     uint8_t * buffer = new uint8_t[buffer_size];

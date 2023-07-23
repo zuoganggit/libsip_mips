@@ -24,6 +24,11 @@ public:
     static shared_ptr<CtrlProtocol> GetInstance();
     void OpenMutex(int channel);
     void OpenAudioChannel();
+
+    void OpenAudioInChannel(AudioEncodeType_e audioType);
+    void OpenAudioOutChannel(AudioEncodeType_e audioType);
+
+
     void OpenVideoChannel();
     void CloseAudioChannel();
     void CloseVideoChannel();

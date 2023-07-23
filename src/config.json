@@ -19,9 +19,11 @@
             "account":"7002"
         }
         ]
+
     },
 
     "audio_codec":[
+        {"codec":"PCM"},
         {"codec":"G711U"},
         {"codec":"G711A"},
         {"codec":"G722"},
@@ -30,9 +32,11 @@
 
     
     "net_config":{
+        "network":1,			//1:DHCP 2:static
         "ip":"192.168.16.100",      //IP地址
         "gateway":"192.168.16.1",   //网关地址
         "netmask":"255.255.255.0",  //子网掩码
-        "DNS":"8.8.8.8"             //DNS地址
+        "DNS1":"8.8.8.8",             //DNS1地址
+	    "DNS2":"0.0.0.0"             //DNS1地址
     }
 }

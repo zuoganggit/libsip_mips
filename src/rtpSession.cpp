@@ -84,6 +84,8 @@ RtpSession::RtpSession(int localPort, RtpSessionType type, uint8_t payloadType, 
     m_payloadType = payloadType;
     m_is_talk = false;
     m_open_mutex_channel = 0;
+    m_telePayType = 101;
+    m_audioInType = ET_G711U;
 
     if(type == Video){
         m_timestamp = 6000;
@@ -158,8 +160,13 @@ void RtpSession::SetRemoteAddr(const string& dstAddr, int dstPort){
     m_open_mutex_channel = 0;
 }
 
-void RtpSession::SetPayloadType(uint8_t payloadType){
+
+void RtpSession::SetCodecType(AudioEncodeType_e type){
+    m_audioInType = type;
+}
+void RtpSession::SetPayloadType(uint8_t payloadType, uint8_t telePayloadType){
     m_payloadType = payloadType;
+    m_telePayType = telePayloadType;
 }
 
 
@@ -340,25 +347,23 @@ void RtpSession::run(){
                 uint8_t payloadType = buffer[1] & 0x7f;
                 // 计算负载内容的起始位置
                 uint8_t* payload = buffer + sizeof(RTPHeader);
-                if(payloadType != m_payloadType){
-                    if(payloadType == 101 || payloadType == 96){
-                        printf("DTMF event ");
-                        for(int i = 0; i <bytesRead-sizeof(RTPHeader); i++){
-                            printf("%x ", payload[i]);
-                        }
-                        printf("\n");
-                        if(payload[0] == 11){  //end
-                            if(m_open_mutex_channel > 0){
-                                //open mutex
-                                printf("open mutex  channel %d\n", m_open_mutex_channel);
-                                m_CtrlProtocol_ptr->OpenMutex(m_open_mutex_channel);
-                            }
-                            m_open_mutex_channel = 0;
-                        }else{
-                            m_open_mutex_channel = payload[0];
-                        }
-                        continue;
+                if(payloadType == m_telePayType){
+                    printf("DTMF event ");
+                    for(int i = 0; i <bytesRead-sizeof(RTPHeader); i++){
+                        printf("%x ", payload[i]);
                     }
+                    printf("\n");
+                    if(payload[0] == 11){  //end
+                        if(m_open_mutex_channel > 0){
+                            //open mutex
+                            printf("open mutex  channel %d\n", m_open_mutex_channel);
+                            m_CtrlProtocol_ptr->OpenMutex(m_open_mutex_channel);
+                        }
+                        m_open_mutex_channel = 0;
+                    }else{
+                        m_open_mutex_channel = payload[0];
+                    }
+                    continue;
                 }else{
                     if(!m_is_talk){
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);

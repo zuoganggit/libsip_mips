@@ -3,6 +3,8 @@
 #include <string.h>
 #include <unordered_map>
 #include <sstream>
+#include <regex>
+#include <vector>
 #include "audioStream.h"
 #include "videoStream.h"
 #include "sipSession.h"
@@ -12,6 +14,55 @@
 int sip_local_port = 5060;
 #define  H264_PAYLOAD_TYPE 99
 #define  G711U_PAYLOAD_TYPE 0
+#define  G711A_PAYLOAD_TYPE 8
+#define  L16_PAYLOAD_TYPE 98
+
+
+
+struct RtpmapInfo {
+    int payload;
+    std::string encoding;
+    int sampleRate;
+};
+
+// SDP解析函数
+std::vector<RtpmapInfo> parseSDP(const std::string& sdp) {
+    std::vector<RtpmapInfo> rtpmapList;
+
+    // 正则表达式匹配RTPMAP字段
+    std::regex rtpmap_regex("a=rtpmap:(\\d+) ([^\\s/]+)/([0-9]+)");
+    std::smatch matches;
+
+    // 使用迭代器遍历匹配
+    std::string::const_iterator searchStart(sdp.cbegin());
+    while (std::regex_search(searchStart, sdp.cend(), matches, rtpmap_regex)) {
+        // 提取并保存RTPMAP信息
+        RtpmapInfo info;
+        info.payload = std::stoi(matches[1]);
+        info.encoding = matches[2];
+        info.sampleRate = std::stoi(matches[3]);
+        rtpmapList.push_back(info);
+
+        // 继续搜索下一个匹配
+        searchStart = matches.suffix().first;
+    }
+
+    return rtpmapList;
+}
+
+
+AudioEncodeType_e getT21AudioType(string codecStr){
+    if(codecStr == "L16"){
+        return ET_PCM;
+    }else if(codecStr == "PCMU"){
+        return ET_G711U;
+    }else if(codecStr == "PCMA"){
+        return ET_G711A;
+    }
+
+    return ET_G711U;
+}
+
 
 
 shared_ptr<SipSession> SipSession::GetInstance(const string& sipServerDomain,
@@ -96,37 +147,69 @@ bool SipSession::Start(){
 }
 
 
-void SipSession::callAnswered(eXosip_event_t *event){
+void SipSession::callAckAnswered(eXosip_event_t *event){
     osip_message_t *ack;
     if (0 == eXosip_call_build_ack(m_context_eXosip, event->did, &ack)){
         eXosip_call_send_ack(m_context_eXosip, event->did, ack);
         sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
+        Codec audioCodec = G711U;
+        string audioStr = "PCMU";
+        int audioPayloadType = 0;
+        int telePayloadType = 101;
+        
         if(sdp){
             m_CtrlProtocol_ptr->SendCallResult(DB_Result_Success);
-            // char *str_sdp = NULL;
-            // sdp_message_to_str(sdp, &str_sdp);
-            // if(str_sdp){
-            //     printf("sdp is %s\n", str_sdp);
-            //     osip_free(str_sdp);
-            // }
-                
+            
+            char *str_sdp = NULL;
+            sdp_message_to_str(sdp, &str_sdp);
+
             sdp_connection_t *audioCon = eXosip_get_audio_connection(sdp);
             string remote_audio_addr = audioCon->c_addr;
             sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
             if(audioMedia){
+
+                auto rtpmap_list = parseSDP(str_sdp);
+                for(auto i:rtpmap_list){
+                    cout << "rtpmap encoding "<<i.encoding<<" payload "<<
+                        i.payload<< " sampleRate "<<i.sampleRate<<endl;
+                    if(i.encoding == "telephone-event"){
+                        telePayloadType = i.payload;
+                    }
+                }
+                bool foundCodec = false;
+                auto local_codecs = ConfigServer::GetInstance()->GetAudioCodec();
+                //协商找出双方都支持的编码格式，如果不支持就设置为默认PCMU
+                for(auto i:rtpmap_list){
+                    for(auto c:local_codecs){
+                        cout<<"local codec string "<< ConfigServer::GetInstance()->CodecString(c)
+                            << " remote codec string  "<<i.encoding<<endl;
+
+                        if(i.encoding == 
+                            ConfigServer::GetInstance()->CodecString(c)){
+                            //匹配
+                            audioCodec = c;
+                            audioStr = i.encoding;
+                            audioPayloadType = i.payload;
+                            foundCodec = true;
+                            break;
+                        }
+                    }
+                    if(foundCodec) break;
+                }
+
                 string remoteAudioPort = audioMedia->m_port;
                 char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
                 cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
-                    " remoteAudioPort "<<remoteAudioPort<< " payloads "<< payloads<<endl;
+                    " remoteAudioPort "<<remoteAudioPort<< " payload "<< payloads<<endl;
                 
-                int payload = std::atoi(payloads);
-                audio_rtp_session->SetPayloadType(payload);
-
+                // int payload = std::atoi(payloads);
+                audio_rtp_session->SetPayloadType(audioPayloadType);
+                audio_rtp_session->SetCodecType(getT21AudioType(audioStr));
                 audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
                 m_AudioStream_ptr->Open([this](uint8_t* data, int size){
                     // cout<<"pcm size "<<size<<endl;
                     audio_rtp_session->BuildRtpAndSend(data,size);
-                });
+                }, getT21AudioType(audioStr), getT21AudioType(audioStr));
             }
 
             sdp_connection_t *videoCon = eXosip_get_video_connection(sdp);
@@ -138,7 +221,7 @@ void SipSession::callAnswered(eXosip_event_t *event){
 
                 char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
                 cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
-                    " remoteVideoPort "<<remoteVideoPort << "payloads "<<payloads <<endl;
+                    " remoteVideoPort "<<remoteVideoPort << "payload "<<payloads <<endl;
                 int payload = std::atoi(payloads);
 
                 video_rtp_session->SetPayloadType(payload);
@@ -162,30 +245,61 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
     sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
     int video_rtp_type = 99;
     int audio_rtp_type = 0;
+
+    Codec audioCodec = G711U;
+    string audioStr = "PCMU";
+    int audioPayloadType = 0;
+    int telePayloadType = 101;
     if(sdp){
-        // char *str_sdp = NULL;
-        // sdp_message_to_str(sdp, &str_sdp);
-        // if(str_sdp){
-        //     printf("sdp is %s\n", str_sdp);
-        //     osip_free(str_sdp);
-        // }
+        char *str_sdp = NULL;
+        sdp_message_to_str(sdp, &str_sdp);
             
         sdp_connection_t *audioCon = eXosip_get_audio_connection(sdp);
         string remote_audio_addr = audioCon->c_addr;
         sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
         if(audioMedia){
-            string remoteAudioPort = audioMedia->m_port;
+            auto rtpmap_list = parseSDP(str_sdp);
+            for(auto i:rtpmap_list){
+                cout << "rtpmap encoding "<<i.encoding<<" payload "<<
+                    i.payload<< " sampleRate "<<i.sampleRate<<endl;
+                if(i.encoding == "telephone-event"){
+                    telePayloadType = i.payload;
+                }
+            }
+            bool foundCodec = false;
+            auto local_codecs = ConfigServer::GetInstance()->GetAudioCodec();
+            //协商找出双方都支持的编码格式，如果不支持就设置为默认PCMU
+            for(auto i:rtpmap_list){
+                for(auto c:local_codecs){
 
+                    cout<<"local codec string "<< ConfigServer::GetInstance()->CodecString(c)
+                        << " remote codec string  "<<i.encoding<<endl;
+
+                    if(i.encoding == 
+                        ConfigServer::GetInstance()->CodecString(c)){
+                        //匹配
+                        audioCodec = c;
+                        audioStr = i.encoding;
+                        audioPayloadType = i.payload;
+                        foundCodec = true;
+                        break;
+                    }
+                }
+                if(foundCodec) break;
+            }
+
+            string remoteAudioPort = audioMedia->m_port;
             char *payloads = (char *)osip_list_get(&audioMedia->m_payloads, 0);
-            cout<<"remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
+            cout<<"Answer Invite remote_audio_addr  "<<remote_audio_addr << " media "<< audioMedia->m_media<<
                   " remoteAudioPort "<<remoteAudioPort<< " payload "<<payloads<<endl;
             
-            audio_rtp_type = std::atoi(payloads);
-            audio_rtp_session->SetPayloadType(0);
+            // audio_rtp_type = std::atoi(payloads);
+            audio_rtp_session->SetPayloadType(audioPayloadType, telePayloadType);
+            audio_rtp_session->SetCodecType(getT21AudioType(audioStr));
             audio_rtp_session->SetRemoteAddr(remote_audio_addr.c_str(), atoi(remoteAudioPort.c_str()));
             m_AudioStream_ptr->Open([this](uint8_t* data, int size){
                     audio_rtp_session->BuildRtpAndSend(data, size);
-                });
+                }, getT21AudioType(audioStr), getT21AudioType(audioStr));
         }
 
         sdp_connection_t *videoCon = eXosip_get_video_connection(sdp);
@@ -195,7 +309,7 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
             string remoteVideoPort = videoMedia->m_port;
             
             char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
-            cout<<"remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
+            cout<<"Answer Invite remote_video_addr "<<remote_video_addr << " media "<< videoMedia->m_media<<
                     " remoteVideoPort "<<remoteVideoPort << " video payloads "<<payloads <<endl;
             video_rtp_type = std::atoi(payloads);
             video_rtp_session->SetPayloadType(uint8_t(video_rtp_type));
@@ -232,11 +346,14 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 "s=conversation\r\n"
                 "c=IN IP4 %s\r\n"
                 "t=0 0\r\n"
-                "m=audio %d RTP/AVP 0 8\r\n"
-                "a=rtpmap:0 PCMU/8000\r\n"
-                "a=rtpmap:8 PCMA/8000\r\n"
-                "a=rtpmap:101 telephone-event/8000\r\n"
-                "a=fmtp:101 0-16\r\n"
+                // "m=audio %d RTP/AVP 0 8\r\n"
+                "m=audio %d RTP/AVP %d\r\n"
+                // a=rtpmap:96 L16/8000
+                // "a=rtpmap:0 PCMU/8000\r\n"
+                // "a=rtpmap:8 PCMA/8000\r\n"
+                "a=rtpmap:%d %s/8000\r\n"
+                "a=rtpmap:%d telephone-event/8000\r\n"
+                "a=fmtp:%d 0-16\r\n"
                 "a=sendrecv\r\n"
                 "m=video %d RTP/AVP %d\r\n"
                 "a=rtpmap:%d H264/90000\r\n"
@@ -246,8 +363,11 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
                 "a=sendrecv\r\n"
                 // "a=ptime:40 \r\n"
                 , localip, localip, 
-                m_audio_rtp_local_port,
-                 m_video_rtp_local_port, video_rtp_type, video_rtp_type, video_rtp_type);
+                 m_audio_rtp_local_port,
+                 audioPayloadType, audioPayloadType, audioStr.c_str(),
+                 telePayloadType, telePayloadType,
+                 m_video_rtp_local_port, 
+                 video_rtp_type, video_rtp_type, video_rtp_type);
 
         osip_message_set_body (answer, tmp, strlen (tmp));
         osip_message_set_content_type (answer, "application/sdp");
@@ -291,7 +411,8 @@ void SipSession::sipRun(){
             if(rid > 0){
                 eXosip_register_remove(m_context_eXosip, rid);
             }
-
+            // proxy      sip:proxyhost[:port]
+            // eXosip_add_authentication_info(context_eXosip, username, username, password, NULL, NULL))
             rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), to.c_str(), NULL, 1800, &reg);
             if (rid < 0)
             {
@@ -367,7 +488,7 @@ void SipSession::sipRun(){
                 case EXOSIP_CALL_PROCEEDING:
                     break;
                 case EXOSIP_CALL_ANSWERED:
-                    callAnswered(event);
+                    callAckAnswered(event);
                     break;
                 case EXOSIP_CALL_CLOSED:
                     if(event->did == m_call_did){
@@ -454,6 +575,7 @@ bool SipSession::CallOutgoing(const string &toUser){
                 "c=IN IP4 %s\r\n"
                 "t=0 0\r\n"
                 "m=audio %d RTP/AVP 0 8\r\n"
+                // a=rtpmap:96 L16/8000
                 "a=rtpmap:0 PCMU/8000\r\n"
                 "a=rtpmap:8 PCMA/8000\r\n"
                 "a=rtpmap:101 telephone-event/8000\r\n"
