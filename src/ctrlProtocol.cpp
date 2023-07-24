@@ -184,6 +184,7 @@ void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
 
 
 void CtrlProtocol::OpenAudioInChannel(AudioEncodeType_e audioType){
+    printf("open channel DB_MediaMode_AUDIO_Play \n");
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Play_Request);
@@ -195,7 +196,7 @@ void CtrlProtocol::OpenAudioInChannel(AudioEncodeType_e audioType){
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
 
-    T21_Ctrl_Open_Media_Payload payload = {(uint32_t)htonl(1), (uint8_t)audioType, (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
+    T21_Ctrl_Open_Media_Payload payload = {(uint32_t)htonl(1), (uint8_t)audioType, (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
     int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
     memcpy(buffer, &t21_data, sizeof(T21_Data));
@@ -207,6 +208,7 @@ void CtrlProtocol::OpenAudioInChannel(AudioEncodeType_e audioType){
 
 
 void CtrlProtocol::OpenAudioOutChannel(AudioEncodeType_e audioType){
+    printf("open channel DB_MediaMode_AUDIO_Capture \n");
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
     t21_data.CommandID = htons(DB_CMD_Play_Request);
@@ -219,10 +221,10 @@ void CtrlProtocol::OpenAudioOutChannel(AudioEncodeType_e audioType){
     t21_data.Reserved2 = 0;
 
 
-    T21_Ctrl_Open_Media_Payload payload1 = {(uint32_t)htonl(1), (uint8_t)ET_G711U, (uint32_t)htonl(DB_MediaMode_AUDIO_Play)};
+    T21_Ctrl_Open_Media_Payload payload1 = {(uint32_t)htonl(1), (uint8_t)audioType, (uint32_t)htonl(DB_MediaMode_AUDIO_Capture)};
     int buffer_size = sizeof(T21_Ctrl_Open_Media_Payload) + sizeof(T21_Data);
     uint8_t * buffer = new uint8_t[buffer_size];
-
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
     memcpy(buffer+sizeof(T21_Data), &payload1, sizeof(T21_Ctrl_Open_Media_Payload));
     sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
 

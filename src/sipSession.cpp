@@ -395,6 +395,16 @@ std::unordered_map<std::string, std::string> parseKeyValuePairs(const std::strin
 }
 
 void SipSession::sipRun(){
+    bool isEnableProxy = false;
+    SipProxy proxy;
+    string proxy_str;
+    if(ConfigServer::GetInstance()->GetSipProxy(proxy)){
+        isEnableProxy = true;
+        proxy_str = "sip:"+proxy.m_addr + ":" + to_string(proxy.m_port);
+    }
+
+    //暂时先关闭代理功能
+    isEnableProxy = false;
     int rid = 0;    
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
     string to = "sip:" + m_sip_server_domain;
@@ -413,7 +423,16 @@ void SipSession::sipRun(){
             }
             // proxy      sip:proxyhost[:port]
             // eXosip_add_authentication_info(context_eXosip, username, username, password, NULL, NULL))
-            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), to.c_str(), NULL, 1800, &reg);
+            char *proxy_cstr = NULL;
+            if(isEnableProxy){
+                eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
+                    proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
+                proxy_cstr = (char *)proxy_str.c_str();
+            }else{
+                proxy_cstr = (char *)to.c_str();
+            }
+
+            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), proxy_cstr, NULL, 1800, &reg);
             if (rid < 0)
             {
                 printf("eXosip_register_build_initial_register fail %d\n", rid);
@@ -568,6 +587,19 @@ bool SipSession::CallOutgoing(const string &toUser){
             strcpy(localip, m_local_ip.c_str());
         }
 
+
+        auto local_codecs = ConfigServer::GetInstance()->GetAudioCodec();
+        string audio_rtpmap_list;
+        for(auto i:local_codecs){
+            if(ConfigServer::GetInstance()->CodecString(i) == "L16"){
+                audio_rtpmap_list += "a=rtpmap:98 L16/8000\r\n";
+            }else if(ConfigServer::GetInstance()->CodecString(i) == "PCMU"){
+                audio_rtpmap_list += "a=rtpmap:0 PCMU/8000\r\n";
+            }else if(ConfigServer::GetInstance()->CodecString(i) == "PCMA"){
+                audio_rtpmap_list += "a=rtpmap:8 PCMA/8000\r\n";
+            }
+        }
+
         snprintf (tmp, 4096,
                 "v=0\r\n"
                 "o=jack 0 0 IN IP4 %s\r\n"
@@ -576,8 +608,9 @@ bool SipSession::CallOutgoing(const string &toUser){
                 "t=0 0\r\n"
                 "m=audio %d RTP/AVP 0 8\r\n"
                 // a=rtpmap:96 L16/8000
-                "a=rtpmap:0 PCMU/8000\r\n"
-                "a=rtpmap:8 PCMA/8000\r\n"
+                // "a=rtpmap:0 PCMU/8000\r\n"
+                // "a=rtpmap:8 PCMA/8000\r\n"
+                "%s"
                 "a=rtpmap:101 telephone-event/8000\r\n"
                 "a=fmtp:101 0-16\r\n"
                 "a=sendrecv\r\n"
@@ -587,7 +620,8 @@ bool SipSession::CallOutgoing(const string &toUser){
                 "a=fmtp:99 packetization-mode=1\r\n"
                 // "a=sendonly \r\n"
                 // "a=ptime:40 \r\n"
-                , localip, localip, m_audio_rtp_local_port, m_video_rtp_local_port);
+                , localip, localip, m_audio_rtp_local_port, 
+                audio_rtpmap_list.c_str(),m_video_rtp_local_port);
                 // "a=rtpmap:101 telephone-event/8000\r\n"
                 // "a=fmtp:101 0-11\r\n", localip, localip, 3000);
         osip_message_set_body (invite, tmp, strlen(tmp));

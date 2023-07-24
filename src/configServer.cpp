@@ -423,6 +423,9 @@ string ConfigServer::GetAudioCodecConfigString(){
 
 bool ConfigServer::GetSipProxy(SipProxy& proxy){
     lock_guard<mutex> guard(m_config_mutex);
+    if(m_sipConfig.m_proxy.m_addr.empty() || m_sipConfig.m_proxy.m_port <= 0){
+        return false;
+    }
     proxy = m_sipConfig.m_proxy;
     return true;
 }
