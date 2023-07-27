@@ -1,6 +1,7 @@
 #include <fstream>
 #include <sstream>
 #include <iostream>
+#include <regex>
 #include "configServer.h"
 #include "json/value.h"
 #include "json/reader.h"
@@ -421,9 +422,17 @@ string ConfigServer::GetAudioCodecConfigString(){
     return "not found";
 }
 
+bool isValidIPAddress(const std::string& ipAddress) {
+    // 正则表达式匹配 IP 地址格式
+    std::regex ipRegex(R"(^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$)");
+
+    // 使用 std::regex_match() 函数进行匹配
+    return std::regex_match(ipAddress, ipRegex);
+}
+
 bool ConfigServer::GetSipProxy(SipProxy& proxy){
     lock_guard<mutex> guard(m_config_mutex);
-    if(m_sipConfig.m_proxy.m_addr.empty() || m_sipConfig.m_proxy.m_port <= 0){
+    if(!isValidIPAddress(m_sipConfig.m_proxy.m_addr) || m_sipConfig.m_proxy.m_port <= 0){
         return false;
     }
     proxy = m_sipConfig.m_proxy;

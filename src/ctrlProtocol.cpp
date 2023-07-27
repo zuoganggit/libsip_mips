@@ -149,7 +149,7 @@ void CtrlProtocol::TunnelDataHandle(T21_Data *data){
         //send sip info message
         printf("TunnelDataHandle datalen %d\n", datalen);
         if(datalen > 0){
-            SipSession::GetInstance()->SendTunnel(payload->m_data, payload->m_datalen);
+            SipSession::GetInstance()->SendTunnel(payload->m_data, datalen);
         }
     }
 }

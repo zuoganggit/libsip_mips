@@ -394,6 +394,7 @@ std::unordered_map<std::string, std::string> parseKeyValuePairs(const std::strin
     return keyValuePairs;
 }
 
+std::future<void> g_future;
 void SipSession::sipRun(){
     bool isEnableProxy = false;
     SipProxy proxy;
@@ -401,10 +402,10 @@ void SipSession::sipRun(){
     if(ConfigServer::GetInstance()->GetSipProxy(proxy)){
         isEnableProxy = true;
         proxy_str = "sip:"+proxy.m_addr + ":" + to_string(proxy.m_port);
+        eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
+            proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
     }
 
-    //暂时先关闭代理功能
-    isEnableProxy = false;
     int rid = 0;    
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
     string to = "sip:" + m_sip_server_domain;
@@ -425,8 +426,6 @@ void SipSession::sipRun(){
             // eXosip_add_authentication_info(context_eXosip, username, username, password, NULL, NULL))
             char *proxy_cstr = NULL;
             if(isEnableProxy){
-                eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
-                    proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
                 proxy_cstr = (char *)proxy_str.c_str();
             }else{
                 proxy_cstr = (char *)to.c_str();
@@ -445,11 +444,13 @@ void SipSession::sipRun(){
         tt++;
         osip_message_t *answer = NULL;
         osip_body *body = nullptr;
+        int ret = 0;
         eXosip_event_t *event = eXosip_event_wait(m_context_eXosip, 1, 0);
         if(event){
             eXosip_lock(m_context_eXosip);
             eXosip_automatic_action(m_context_eXosip);
             // cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+            // cout<<"event did "<<event->did<<endl;
 
             switch(event->type){
                 case EXOSIP_REGISTRATION_SUCCESS:
@@ -488,6 +489,11 @@ void SipSession::sipRun(){
                     if(body){
                         if(body->length > 0){
                             m_CtrlProtocol_ptr->SendTunnelData((uint8_t*)body->body, body->length);
+                           
+                            // g_future = std::async(std::launch::async, [this](){
+                            //     this_thread::sleep_for(chrono::seconds(1));
+                            //     this->SendTunnel((uint8_t*)"Signal=1\r\n", strlen("Signal=1\r\n"));
+                            // });
                         }
                         
                         unordered_map<string, string> keyValuePairs = parseKeyValuePairs(body->body);
@@ -502,6 +508,13 @@ void SipSession::sipRun(){
                                 open_mutex_channel = std::atoi(signalValue.c_str());
                             }                            
                         }
+                    }
+
+                    ret = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
+                    if(ret == 0){
+                        eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
+                    }else{
+                        printf("eXosip_call_build_answer error %s\n", osip_strerror(ret));
                     }
                     break;
                 case EXOSIP_CALL_PROCEEDING:
@@ -540,18 +553,24 @@ void SipSession::SendTunnel(uint8_t *data, int size){
     if(nullptr == data){
         return;
     }
+    this_thread::sleep_for(chrono::milliseconds(50));
+    eXosip_lock(m_context_eXosip);
     osip_message_t *request = nullptr;
-    if(eXosip_call_build_info(m_context_eXosip, m_call_did, &request) < 0){
-        printf("eXosip_call_build_info fail\n");
+    int i = eXosip_call_build_info (m_context_eXosip, m_call_did, &request);
+    if(i != 0){
+        printf("eXosip_call_build_info fail  m_call_did %d, ret %s\n", m_call_did, osip_strerror(i));
+        eXosip_unlock(m_context_eXosip);
         return;
     }
 
     if(request){
+        //application/octet-stream  application/dtmf-relay text/plain
+        osip_message_set_content_type(request, "application/octet-stream");
         osip_message_set_body(request, (const char *)data, size);
-        eXosip_lock(m_context_eXosip);
         eXosip_call_send_request(m_context_eXosip, m_call_did, request);
-        eXosip_unlock(m_context_eXosip);
     }
+     printf("eXosip_call_send_request info  success\n");
+    eXosip_unlock(m_context_eXosip);
 
 }
 
