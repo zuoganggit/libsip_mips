@@ -41,6 +41,7 @@ private:
     string m_sip_server_domain;
     string m_user_name;
     string m_password;
+    string m_remote_user;
     bool m_exited;
     std::future<void> m_sip_run_future;
     int m_call_cid;
