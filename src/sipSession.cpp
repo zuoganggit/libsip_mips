@@ -409,23 +409,23 @@ std::string uint8ArrayToHexString(const uint8_t* array, size_t size) {
     return oss.str();
 }
 
-std::vector<uint8_t> hexStringToUint8Array(const std::string& hexString) {
+std::vector<uint8_t> hexStringToByteArray(const std::string& hex, int len) 
+{
     std::vector<uint8_t> byteArray;
-    size_t length = hexString.length();
-    
-    for (size_t i = 0; i < length; i += 2) {
-        uint8_t byte;
-        std::stringstream ss;
-        ss << std::hex << hexString.substr(i, 2);
-        ss >> byte;
-        byteArray.push_back(byte);
-    }
-
+	int bytelen = len / 2;
+	std::string strByte;
+	unsigned int n;
+	for (int i = 0; i < bytelen; i++) 
+	{
+		strByte = hex.substr(i * 2, 2);
+		sscanf(strByte.c_str(),"%x",&n);
+		// bytes[i] = n;
+        byteArray.push_back(n);
+	}
     return byteArray;
 }
 
-
-std::future<void> g_future;
+// std::future<void> g_future;
 void SipSession::sipRun(){
     bool isEnableProxy = false;
     SipProxy proxy;
@@ -433,8 +433,8 @@ void SipSession::sipRun(){
     if(ConfigServer::GetInstance()->GetSipProxy(proxy)){
         isEnableProxy = true;
         proxy_str = "sip:"+proxy.m_addr + ":" + to_string(proxy.m_port);
-        eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
-            proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
+        // eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
+        //     proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
     }
 
     int rid = 0;    
@@ -480,7 +480,7 @@ void SipSession::sipRun(){
         if(event){
             eXosip_lock(m_context_eXosip);
             eXosip_automatic_action(m_context_eXosip);
-            cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+            // cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
             // cout<<"event did "<<event->did<<endl;
 
             switch(event->type){
@@ -522,7 +522,7 @@ void SipSession::sipRun(){
                             m_CtrlProtocol_ptr->SendTunnelData((uint8_t*)body->body, body->length);
                            
                             // g_future = std::async(std::launch::async, [this](){
-                            //     // this_thread::sleep_for(chrono::seconds(1));
+                            //     this_thread::sleep_for(chrono::seconds(1));
                             //     // this->SendTunnel((uint8_t*)"Signal=2\r\nDuration=250\r\nPrivate=123456\r\n", strlen("Signal=2\r\nDuration=250\r\nPrivate=123456\r\n"));
                                 
                             //     uint8_t data[] = {0x10, 0x11, 0x12, 0xa1, 0x22};
@@ -573,13 +573,31 @@ void SipSession::sipRun(){
                     break;
 
                 case EXOSIP_MESSAGE_NEW:
-                    printf("recv MESSAGE \n");
                     osip_message_get_body(event->request, 0, &body);
                     if(body){
                         if(body->length > 0){
-                            auto data_v = hexStringToUint8Array(body->body);
-                            if(data_v.size() > 0)
-                                m_CtrlProtocol_ptr->SendTunnelData(data_v.data(), data_v.size());
+                            char *start_prefix = strstr(body->body, "hex_data=");
+                            if(!start_prefix){
+                                break;
+                            }
+                            char *start_hex = start_prefix + strlen("hex_data=");
+
+                            printf("recv MESSAGE %s\n", start_hex);
+                            // m_CtrlProtocol_ptr->SendTunnelData((uint8_t *)body->body, body->length);
+                            int len = strlen(start_hex);
+                            if(body->body[body->length-2] == '\r' && 
+                                body->body[body->length-1] == '\n'){
+                                len -= 2;
+                            }
+                            if(len > 0){
+                                auto data_v = hexStringToByteArray(start_hex, len);
+                                if(data_v.size() > 0)
+                                    for(int i = 0; i< data_v.size(); i++){
+                                        printf("%x ", data_v[i]);
+                                    }
+                                    printf("\n");
+                                    m_CtrlProtocol_ptr->SendTunnelData(data_v.data(), data_v.size());
+                            }
                         }
                     }
                     break;
@@ -611,15 +629,9 @@ void SipSession::SendTunnel(uint8_t *data, int size){
     }
     printf("\n");
     printf("###### SendTunnel data %s\n", data_str.c_str());
-    // this_thread::sleep_for(chrono::milliseconds(50));
+
     eXosip_lock(m_context_eXosip);
     osip_message_t *request = nullptr;
-    // int i = eXosip_call_build_info (m_context_eXosip, m_call_did, &request);
-    // if(i != 0){
-    //     printf("eXosip_call_build_info fail  m_call_did %d, ret %s\n", m_call_did, osip_strerror(i));
-    //     eXosip_unlock(m_context_eXosip);
-    //     return;
-    // }
 
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
     if(!m_AudioStream_ptr->IsOpened() || m_remote_user.empty()){
@@ -638,13 +650,9 @@ void SipSession::SendTunnel(uint8_t *data, int size){
     
     if(request){
         //application/octet-stream  application/dtmf-relay text/plain
-        // osip_message_set_content_type(request, "application/dtmf-relay");
-        // osip_message_set_content_type(request, "application/octet-stream");
-        
-        // eXosip_call_send_request(m_context_eXosip, m_call_did, request);
-
         osip_message_set_content_type(request, "text/plain");
-        osip_message_set_body(request, data_str.c_str(), data_str.size());
+        string send_data = "hex_data=" + data_str;
+        osip_message_set_body(request, send_data.c_str(), send_data.size());
         eXosip_message_send_request(m_context_eXosip, request);
     }
     
@@ -689,12 +697,14 @@ bool SipSession::CallOutgoing(const string &toUser){
         auto local_codecs = ConfigServer::GetInstance()->GetAudioCodec();
         string audio_rtpmap_list;
         for(auto i:local_codecs){
-            if(ConfigServer::GetInstance()->CodecString(i) == "L16"){
+            if(i == PCM){
                 audio_rtpmap_list += "a=rtpmap:98 L16/8000\r\n";
-            }else if(ConfigServer::GetInstance()->CodecString(i) == "PCMU"){
+            }else if(i == G711U){
                 audio_rtpmap_list += "a=rtpmap:0 PCMU/8000\r\n";
-            }else if(ConfigServer::GetInstance()->CodecString(i) == "PCMA"){
+            }else if(i == G711A){
                 audio_rtpmap_list += "a=rtpmap:8 PCMA/8000\r\n";
+            }else if(i == OPUS){
+                audio_rtpmap_list += "a=rtpmap:97 OPUS/48000\r\n";
             }
         }
 

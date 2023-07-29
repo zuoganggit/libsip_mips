@@ -111,7 +111,11 @@ void ConfigServer::loadConfig(){
         vector<Codec> codecs;
         if(audio_codecs.isArray()){
             for(int i=0; i< audio_codecs.size(); i++){
-                if(audio_codecs[i].isMember("codec")){
+                int enable = 0;
+                if(audio_codecs[i].isMember("switch")){
+                    enable = audio_codecs[i]["switch"].asInt();
+                }
+                if(audio_codecs[i].isMember("codec") && enable){
                     string codec_str = audio_codecs[i]["codec"].asString();
                     if(codec_str == "G711U"){
                         codecs.push_back(G711U);
@@ -378,6 +382,10 @@ string ConfigServer::CodecString(Codec codec){
         return "PCMU";
     }else if(codec == G711A){
         return "PCMA";
+    }else if(codec == G722){
+        return "G722";
+    }else if(codec == OPUS){
+        return "OPUS";
     }
 
     return "PCMU";
