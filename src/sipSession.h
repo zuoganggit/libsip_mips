@@ -27,6 +27,8 @@ public:
     bool CallOutgoing(const string& toUser);
     int TerminateCalling();
     bool GetRegStatus();
+
+    void sip_prepend_route(osip_message_t *sip);
 private:
     void openMutexCtl(int channel);
     void sipRun();
@@ -51,6 +53,7 @@ private:
     shared_ptr<RtpSession> audio_rtp_session;
     shared_ptr<RtpSession> video_rtp_session;
     bool m_is_registed;
+    string m_sip_proxy;
     shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;
     shared_ptr<AudioStream> m_AudioStream_ptr;
     shared_ptr<VideoStream> m_VideoStream_ptr;

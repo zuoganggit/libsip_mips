@@ -205,7 +205,7 @@ bool SipSession::Start(){
     m_CtrlProtocol_ptr = CtrlProtocol::GetInstance();
     m_AudioStream_ptr = AudioStream::GetInstance();
     m_VideoStream_ptr = VideoStream::GetInstance();
-    
+
     m_context_eXosip = eXosip_malloc();
     if(m_context_eXosip == nullptr){
         cout<<"eXosip_malloc fail"<<endl;
@@ -475,6 +475,7 @@ void SipSession::outCallAnswer(int did, int tid){
         osip_message_set_body (answer, tmp, strlen (tmp));
         osip_message_set_content_type (answer, "application/sdp");
 
+        sip_prepend_route(answer);
         eXosip_call_send_answer(m_context_eXosip, tid, 200, answer);
         m_is_calling = true;
     }
@@ -527,16 +528,20 @@ std::vector<uint8_t> hexStringToByteArray(const std::string& hex, int len)
     return byteArray;
 }
 
+
+void SipSession::sip_prepend_route(osip_message_t *sip){
+    if(!m_sip_proxy.empty()){
+        _prepend_route(sip, m_sip_proxy.c_str());
+    }
+}
+
 std::future<void> g_future;
 void SipSession::sipRun(){
-    bool isEnableProxy = false;
     SipProxy proxy;
-    string proxy_str;
     if(ConfigServer::GetInstance()->GetSipProxy(proxy)){
-        isEnableProxy = true;
-        proxy_str = "sip:"+proxy.m_addr + ":" + to_string(proxy.m_port);
-        // eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
-        //     proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
+        m_sip_proxy = "sip:"+proxy.m_addr + ":" + to_string(proxy.m_port);
+        eXosip_add_authentication_info(m_context_eXosip, proxy.m_username.c_str(), 
+            proxy.m_username.c_str(), proxy.m_password.c_str(), NULL, NULL);
     }
 
     int rid = 0;    
@@ -556,20 +561,13 @@ void SipSession::sipRun(){
             if(rid > 0){
                 eXosip_register_remove(m_context_eXosip, rid);
             }
-            // proxy      sip:proxyhost[:port]
-            // eXosip_add_authentication_info(context_eXosip, username, username, password, NULL, NULL))
-            char *proxy_cstr = NULL;
-            if(isEnableProxy){
-                proxy_cstr = (char *)proxy_str.c_str();
-            }else{
-                proxy_cstr = (char *)to.c_str();
-            }
-
-            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), proxy_cstr, NULL, 1800, &reg);
+            
+            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), to.c_str(), NULL, 1800, &reg);
             if (rid < 0)
             {
                 printf("eXosip_register_build_initial_register fail %d\n", rid);
             }else{
+                sip_prepend_route(reg);
                 eXosip_register_send_register(m_context_eXosip, rid, reg);
             }
             eXosip_unlock(m_context_eXosip);
@@ -769,6 +767,7 @@ void SipSession::SendTunnel(uint8_t *data, int size){
         osip_message_set_content_type(request, "text/plain");
         string send_data = "hex_data=" + data_str;
         osip_message_set_body(request, send_data.c_str(), send_data.size());
+        sip_prepend_route(request);
         eXosip_message_send_request(m_context_eXosip, request);
     }
     
@@ -852,6 +851,7 @@ bool SipSession::CallOutgoing(const string &toUser){
         osip_message_set_content_type (invite, "application/sdp");
 
         eXosip_lock(m_context_eXosip);
+        sip_prepend_route(invite);
         cid = eXosip_call_send_initial_invite (m_context_eXosip, invite);
         eXosip_unlock(m_context_eXosip);
         if(cid < 0){
