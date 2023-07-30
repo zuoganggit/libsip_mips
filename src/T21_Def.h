@@ -61,6 +61,8 @@ typedef enum
 	ET_PCM   = 3,
     ET_G711U = 5,
     ET_G711A = 6,
+    ET_G722 = 8,
+    ET_OPUS = 9,
 } AudioEncodeType_e;
 
 

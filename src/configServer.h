@@ -23,6 +23,7 @@ typedef struct{
     int m_sip_period;
     vector<string> m_out_accounts;
     SipProxy m_proxy;
+    int m_anwer_sleep;
 }SipConfig;
 
 
@@ -72,6 +73,8 @@ public:
     string GetSipConfigString();
     string GetNetConfigString();
     string GetAudioCodecConfigString();
+
+    int GetAnwserSleep();
 private:
     void loadConfig();
     // void syncFile();

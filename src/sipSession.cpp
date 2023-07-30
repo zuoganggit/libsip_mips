@@ -66,6 +66,76 @@ AudioEncodeType_e getT21AudioType(string codecStr){
 
 
 
+static int _am_option_route_add_lr(const char *orig_route, char *dst_route, int dst_route_size) {
+  osip_route_t *route_header = NULL;
+  char *new_route = NULL;
+  const char *tmp;
+  const char *tmp2;
+  int i;
+
+  memset(dst_route, '\0', dst_route_size);
+  if (orig_route == NULL || orig_route[0] == '\0')
+    return 0;
+
+  tmp = strstr(orig_route, "sip:");
+  tmp2 = strstr(orig_route, "sips:");
+  if (tmp == NULL && tmp2 == NULL) {
+    snprintf(dst_route, dst_route_size, "<sip:%s;lr>", orig_route);
+    return 0;
+  }
+
+  i = osip_route_init(&route_header);
+  if (i != 0 || route_header == NULL)
+    return OSIP_NOMEM;
+  i = osip_route_parse(route_header, orig_route);
+  if (i != 0 || route_header->url == NULL || route_header->url->host == NULL) {
+    osip_route_free(route_header);
+    snprintf(dst_route, dst_route_size, "%s", orig_route);
+    return i;
+  }
+
+  tmp = strstr(orig_route, ";lr");
+  if (tmp == NULL)
+    osip_uri_uparam_add(route_header->url, osip_strdup("lr"), NULL);
+
+  i = osip_route_to_str(route_header, &new_route);
+  osip_route_free(route_header);
+  if (i != 0 || new_route == NULL) {
+    return i;
+  }
+  snprintf(dst_route, dst_route_size, "%s", new_route);
+  osip_free(new_route);
+  return 0;
+}
+
+static int _prepend_route(osip_message_t *sip, const char *hvalue) {
+  osip_route_t *route;
+  int i;
+  char outbound_route[256];
+
+  if (hvalue == NULL || hvalue[0] == '\0')
+    return OSIP_SUCCESS;
+
+  memset(outbound_route, '\0', sizeof(outbound_route));
+  i = _am_option_route_add_lr(hvalue, outbound_route, sizeof(outbound_route));
+  if (i != 0)
+    return i;
+
+  i = osip_route_init(&route);
+
+  if (i != 0)
+    return i;
+  i = osip_route_parse(route, outbound_route);
+  if (i != 0) {
+    osip_route_free(route);
+    return i;
+  }
+  sip->message_property = 2;
+  osip_list_add(&sip->routes, route, 0);
+  return OSIP_SUCCESS;
+}
+
+
 shared_ptr<SipSession> SipSession::GetInstance(const string& sipServerDomain,
     const string& userName,  const string& password){
     static auto sipPtr = make_shared<SipSession>(sipServerDomain, userName, password);
@@ -239,11 +309,10 @@ void SipSession::callAckAnswered(eXosip_event_t *event){
     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
 }
 
-
-void SipSession::outCallAnswer(eXosip_event_t* event){
+void SipSession::outCallAnswer(int did, int tid){
     osip_message_t *answer = NULL;
 
-    sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
+    sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, did);
     int video_rtp_type = 99;
     int audio_rtp_type = 0;
 
@@ -322,12 +391,12 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
         }
     }
     sdp_message_free(sdp);
-    m_call_did = event->did;
-    int i = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
+    m_call_did = did;
+    int i = eXosip_call_build_answer(m_context_eXosip, tid, 200, &answer);
     if (i != 0)
     {
         cout<<"eXosip_call_build_answer fail "<<i<<endl;
-        eXosip_call_send_answer(m_context_eXosip, event->tid, 400, NULL);
+        eXosip_call_send_answer(m_context_eXosip, tid, 400, NULL);
     }
     else
     {
@@ -373,12 +442,12 @@ void SipSession::outCallAnswer(eXosip_event_t* event){
         osip_message_set_body (answer, tmp, strlen (tmp));
         osip_message_set_content_type (answer, "application/sdp");
 
-        eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
+        eXosip_call_send_answer(m_context_eXosip, tid, 200, answer);
         m_is_calling = true;
     }
-    osip_from_t * from = osip_message_get_from(event->request);
-    m_remote_user = from->url->username;
-    printf("!!!!!! remote  call user %s\n",from->url->username);
+    // osip_from_t * from = osip_message_get_from(event->request);
+    // m_remote_user = from->url->username;
+    // printf("!!!!!! remote  call user %s\n",from->url->username);
 }
 
 
@@ -425,7 +494,7 @@ std::vector<uint8_t> hexStringToByteArray(const std::string& hex, int len)
     return byteArray;
 }
 
-// std::future<void> g_future;
+std::future<void> g_future;
 void SipSession::sipRun(){
     bool isEnableProxy = false;
     SipProxy proxy;
@@ -447,6 +516,7 @@ void SipSession::sipRun(){
     uint16_t tt = 0;
     int open_mutex_channel = -1;
     int register_fail_count = 0;
+    int answer_sleep = ConfigServer::GetInstance()->GetAnwserSleep();
     while(!m_exited){
         if(tt % 30 == 0){
             eXosip_lock(m_context_eXosip);
@@ -482,7 +552,8 @@ void SipSession::sipRun(){
             eXosip_automatic_action(m_context_eXosip);
             // cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
             // cout<<"event did "<<event->did<<endl;
-
+            int did = event->did;
+            int tid = event->tid;
             switch(event->type){
                 case EXOSIP_REGISTRATION_SUCCESS:
                     m_is_registed = true;
@@ -496,38 +567,44 @@ void SipSession::sipRun(){
                     }
                     break;
                 case EXOSIP_CALL_INVITE:
-                    if(m_AudioStream_ptr->IsOpened()){
+                    if(m_AudioStream_ptr->IsOpened() || m_is_calling){
                         eXosip_call_send_answer(m_context_eXosip, event->tid, 
                             SIP_BUSY_HERE, NULL);
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Busy);
                     }else{
+                        m_is_calling = true;
+                        osip_from_t * from = osip_message_get_from(event->request);
+                        m_remote_user = from->url->username;
+                        printf("!!!!!! remote  call user %s\n",from->url->username);
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
-                        outCallAnswer(event);
+                        if(answer_sleep > 0){
+                            eXosip_call_send_answer(m_context_eXosip, event->tid, 
+                                SIP_RINGING, NULL);
+                            g_future = std::async(std::launch::async, [this, did, tid,answer_sleep](){
+                                this_thread::sleep_for(chrono::seconds(answer_sleep));
+                                eXosip_lock(this->m_context_eXosip);
+                                this->outCallAnswer(did, tid);
+                                eXosip_unlock(this->m_context_eXosip);
+                            });
+                            break;
+                        }
+                        outCallAnswer(did, tid);
                     }
                     break;
                 case EXOSIP_CALL_REINVITE:
                     // AudioStream::GetInstance()->Close();
                     // VideoStream::GetInstance()->Close();
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
-                    outCallAnswer(event);
+                    outCallAnswer(did, tid);
                     break;
                 case EXOSIP_CALL_REQUESTFAILURE:
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
                     break;
                 case EXOSIP_CALL_MESSAGE_NEW:
-                    // osip_message_to_str(event->request, &message_str, &message_size);
                     osip_message_get_body(event->request, 0, &body);
                     if(body){
                         if(body->length > 0){
                             m_CtrlProtocol_ptr->SendTunnelData((uint8_t*)body->body, body->length);
-                           
-                            // g_future = std::async(std::launch::async, [this](){
-                            //     this_thread::sleep_for(chrono::seconds(1));
-                            //     // this->SendTunnel((uint8_t*)"Signal=2\r\nDuration=250\r\nPrivate=123456\r\n", strlen("Signal=2\r\nDuration=250\r\nPrivate=123456\r\n"));
-                                
-                            //     uint8_t data[] = {0x10, 0x11, 0x12, 0xa1, 0x22};
-                            //     this->SendTunnel(data, sizeof(data));
-                            // });
                         }
                         
                         unordered_map<string, string> keyValuePairs = parseKeyValuePairs(body->body);
@@ -573,6 +650,11 @@ void SipSession::sipRun(){
                     break;
 
                 case EXOSIP_MESSAGE_NEW:
+                    ret = eXosip_message_build_answer(m_context_eXosip, event->tid, 200, &answer);
+                    if (ret == 0) {
+                        eXosip_message_send_answer(m_context_eXosip, event->tid, 200, answer);
+                    }
+
                     osip_message_get_body(event->request, 0, &body);
                     if(body){
                         if(body->length > 0){
@@ -600,6 +682,7 @@ void SipSession::sipRun(){
                             }
                         }
                     }
+
                     break;
                 default:
                     break;

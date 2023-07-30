@@ -33,8 +33,7 @@ private:
     void callAckAnswered(eXosip_event_t *event); 
     void callByed(eXosip_event_t *event);
 
-    void outCallAnswer(eXosip_event_t* event);
-
+    void outCallAnswer(int did, int tid);
     void sendAudioRtp(uint8_t* frame, int size);
     struct eXosip_t *m_context_eXosip;
     string m_local_ip;

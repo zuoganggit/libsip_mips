@@ -11,15 +11,18 @@
             "user_name":2001,
             "password":"1111"
         },
-        "sip_outcall_account":[              //sip外呼分机列表 最多支持6个
-        {
-            "account":"7001"
+        "auto_answer": {
+            "enable":   1,   //1是启用自动接听；0是拒绝接听
+            "delay_time":5   // 延迟时间  范围0-120
         },
-        {
-            "account":"7002"
-        }
+        "sip_outcall_account":[              //sip外呼分机列表 最多支持6个
+            {
+                "account":"7001"
+            },
+            {
+                "account":"7002"
+            }
         ]
-
     },
 
     "audio_codec":[
