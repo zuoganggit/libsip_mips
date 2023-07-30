@@ -62,20 +62,20 @@ int main(int argc, char ** argv){
         cerr<<"GetPassword  fail"<<endl;
         return 0;
     }
+    
     SipProxy sipproxy;
     ConfigServer::GetInstance()->GetSipProxy(sipproxy);
-
     cout << "sipproxy addr "<<sipproxy.m_addr<<" port "<<sipproxy.m_port
      <<" user "<<sipproxy.m_username<<" password  "<<sipproxy.m_password<<endl;
      
-    CtrlProtocol::GetInstance();
+    // CtrlProtocol::GetInstance();
 
     auto sipSessionPtr = SipSession::GetInstance(sip_server_domain, 
         user_name, password);
 
     if(!sipSessionPtr->Start()){
         cout<<"SipSession start fail"<<endl;
-        return -1;
+        return 0;
     }
 
     // this_thread::sleep_for(chrono::seconds(3));

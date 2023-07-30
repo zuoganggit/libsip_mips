@@ -6,6 +6,10 @@
 #include <iomanip>
 #include <regex>
 #include <vector>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <unistd.h>
+
 #include "audioStream.h"
 #include "videoStream.h"
 #include "sipSession.h"
@@ -25,6 +29,28 @@ struct RtpmapInfo {
     std::string encoding;
     int sampleRate;
 };
+
+bool isPortListening(int port) {
+    int sockfd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (sockfd == -1) {
+        perror("Error creating socket");
+        return false;
+    }
+
+    sockaddr_in addr;
+    addr.sin_family = AF_INET;
+    addr.sin_addr.s_addr = INADDR_ANY;
+    addr.sin_port = htons(port);
+
+    if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == 0) {
+        close(sockfd);
+        return false;
+    }
+
+    close(sockfd);
+    return true;
+}
+
 
 // SDP解析函数
 std::vector<RtpmapInfo> parseSDP(const std::string& sdp) {
@@ -155,15 +181,12 @@ SipSession::SipSession(const string &sipServerDomain,
     m_is_calling = false;
     m_local_ip = "0.0.0.0";
     m_is_registed = false;
-    m_CtrlProtocol_ptr = CtrlProtocol::GetInstance();
-    m_AudioStream_ptr = AudioStream::GetInstance();
-    m_VideoStream_ptr = VideoStream::GetInstance();
 }
 
 SipSession::~SipSession()
 {
     cout<<"~SipSession() "<<endl;
-    if(!m_exited){
+    if(!m_exited && m_context_eXosip){
         Stop();
     }
 
@@ -174,6 +197,15 @@ SipSession::~SipSession()
 }
 
 bool SipSession::Start(){
+    if(isPortListening(sip_local_port)){
+        cout<<"udp port "<<sip_local_port<<" has listening"<<endl;
+        return false;
+    }
+
+    m_CtrlProtocol_ptr = CtrlProtocol::GetInstance();
+    m_AudioStream_ptr = AudioStream::GetInstance();
+    m_VideoStream_ptr = VideoStream::GetInstance();
+    
     m_context_eXosip = eXosip_malloc();
     if(m_context_eXosip == nullptr){
         cout<<"eXosip_malloc fail"<<endl;
@@ -187,9 +219,10 @@ bool SipSession::Start(){
     eXosip_set_user_agent(m_context_eXosip, "mips_sipper");
     string laddr = "0.0.0.0";
     ConfigServer::GetInstance()->GetLocalAddr(laddr);
-    if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, laddr.c_str(), sip_local_port, AF_INET, 0) < 0){
+    if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
         cout<<"eXosip_listen_addr fail"<<endl;
-        if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, NULL, sip_local_port, AF_INET, 0) < 0){
+        if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, NULL, sip_local_port, AF_INET, 0) != 0){
+            cout<<"eXosip_listen_addr fail, SipSession start fail"<<endl;
             return false;
         }
     }else{
