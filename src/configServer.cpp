@@ -91,13 +91,9 @@ void ConfigServer::loadConfig(){
         m_sipConfig.m_anwer_sleep = 0;
         if(value["sip_config"].isMember("auto_answer")){
             Json::Value val_ans = value["sip_config"]["auto_answer"];
-            if(val_ans.isMember("enable")){
-                if(val_ans["enable"].asInt() == 0){
-                    if(val_ans.isMember("delay_time")){
-                        m_sipConfig.m_anwer_sleep = val_ans["delay_time"].asInt();
-                    }
-                }
-            }
+            if(val_ans.isMember("delay_time")){
+                m_sipConfig.m_anwer_sleep = val_ans["delay_time"].asInt();
+            } 
         }
     }
 

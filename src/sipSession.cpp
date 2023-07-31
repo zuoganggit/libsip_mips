@@ -345,6 +345,15 @@ void SipSession::callAckAnswered(eXosip_event_t *event){
 void SipSession::outCallAnswer(int did, int tid){
     osip_message_t *answer = NULL;
 
+    int i = eXosip_call_build_answer(m_context_eXosip, tid, 200, &answer);
+    if (i != 0)
+    {
+        cout<<"eXosip_call_build_answer fail "<<i<<endl;
+        eXosip_call_send_answer(m_context_eXosip, tid, 400, NULL);
+        m_is_calling = false;
+        return;
+    }
+
     sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, did);
     int video_rtp_type = 99;
     int audio_rtp_type = 0;
@@ -423,62 +432,56 @@ void SipSession::outCallAnswer(int did, int tid){
                 });
         }
     }
+
     sdp_message_free(sdp);
     m_call_did = did;
-    int i = eXosip_call_build_answer(m_context_eXosip, tid, 200, &answer);
-    if (i != 0)
-    {
-        cout<<"eXosip_call_build_answer fail "<<i<<endl;
-        eXosip_call_send_answer(m_context_eXosip, tid, 400, NULL);
+
+    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Success);
+    char tmp[4096];
+    char localip[128] = {0};
+    if(m_local_ip == "0.0.0.0"){
+        eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
+    }else{
+        strcpy(localip, m_local_ip.c_str());
     }
-    else
-    {
-        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Success);
-        char tmp[4096];
-        char localip[128] = {0};
-        if(m_local_ip == "0.0.0.0"){
-            eXosip_guess_localip(m_context_eXosip, AF_INET, localip, 128);
-        }else{
-            strcpy(localip, m_local_ip.c_str());
-        }
-        
+    
 
-        snprintf (tmp, 4096,
-                "v=0\r\n"
-                "o=jack 0 0 IN IP4 %s\r\n"
-                "s=conversation\r\n"
-                "c=IN IP4 %s\r\n"
-                "t=0 0\r\n"
-                // "m=audio %d RTP/AVP 0 8\r\n"
-                "m=audio %d RTP/AVP %d\r\n"
-                // a=rtpmap:96 L16/8000
-                // "a=rtpmap:0 PCMU/8000\r\n"
-                // "a=rtpmap:8 PCMA/8000\r\n"
-                "a=rtpmap:%d %s/8000\r\n"
-                "a=rtpmap:%d telephone-event/8000\r\n"
-                "a=fmtp:%d 0-16\r\n"
-                "a=sendrecv\r\n"
-                "m=video %d RTP/AVP %d\r\n"
-                "a=rtpmap:%d H264/90000\r\n"
-                "a=fmtp:%d packetization-mode=1\r\n"
-                // "a=ssrc:16909060\r\n"
-                // profile-level-id=428015
-                "a=sendrecv\r\n"
-                // "a=ptime:40 \r\n"
-                , localip, localip, 
-                 m_audio_rtp_local_port,
-                 audioPayloadType, audioPayloadType, audioStr.c_str(),
-                 telePayloadType, telePayloadType,
-                 m_video_rtp_local_port, 
-                 video_rtp_type, video_rtp_type, video_rtp_type);
+    snprintf (tmp, 4096,
+            "v=0\r\n"
+            "o=jack 0 0 IN IP4 %s\r\n"
+            "s=conversation\r\n"
+            "c=IN IP4 %s\r\n"
+            "t=0 0\r\n"
+            // "m=audio %d RTP/AVP 0 8\r\n"
+            "m=audio %d RTP/AVP %d\r\n"
+            // a=rtpmap:96 L16/8000
+            // "a=rtpmap:0 PCMU/8000\r\n"
+            // "a=rtpmap:8 PCMA/8000\r\n"
+            "a=rtpmap:%d %s/8000\r\n"
+            "a=rtpmap:%d telephone-event/8000\r\n"
+            "a=fmtp:%d 0-16\r\n"
+            "a=sendrecv\r\n"
+            "m=video %d RTP/AVP %d\r\n"
+            "a=rtpmap:%d H264/90000\r\n"
+            "a=fmtp:%d packetization-mode=1\r\n"
+            // "a=ssrc:16909060\r\n"
+            // profile-level-id=428015
+            "a=sendrecv\r\n"
+            // "a=ptime:40 \r\n"
+            , localip, localip, 
+                m_audio_rtp_local_port,
+                audioPayloadType, audioPayloadType, audioStr.c_str(),
+                telePayloadType, telePayloadType,
+                m_video_rtp_local_port, 
+                video_rtp_type, video_rtp_type, video_rtp_type);
 
-        osip_message_set_body (answer, tmp, strlen (tmp));
-        osip_message_set_content_type (answer, "application/sdp");
+    osip_message_set_body (answer, tmp, strlen (tmp));
+    osip_message_set_content_type (answer, "application/sdp");
 
-        sip_prepend_route(answer);
-        eXosip_call_send_answer(m_context_eXosip, tid, 200, answer);
-        m_is_calling = true;
-    }
+    sip_prepend_route(answer);
+    eXosip_call_send_answer(m_context_eXosip, tid, 200, answer);
+    m_is_calling = true;
+    
     // osip_from_t * from = osip_message_get_from(event->request);
     // m_remote_user = from->url->username;
     // printf("!!!!!! remote  call user %s\n",from->url->username);
