@@ -157,6 +157,30 @@ void CtrlProtocol::TunnelDataHandle(T21_Data *data){
     }
 }
 
+void CtrlProtocol::DirectCall(T21_Data *data){
+    T21_DB_CMD_Direct_Call_Req_Payload *payload = (T21_DB_CMD_Direct_Call_Req_Payload *)data->Payload;
+    if(payload != nullptr){
+
+        if(payload->m_numtype == 0){
+            char *number = (char *)payload->m_callnum;
+            if(SipSession::GetInstance()->CallOutgoing(number)){
+                return;
+            }
+        }
+
+        char *dst_ip = (char *)payload->m_callnum;
+        int port = ntohl(payload->m_port);
+        printf("DirectCall  dst ip  %s, port %d\n", dst_ip, port);
+        string sip_dst = dst_ip + (string)":" + to_string(port);
+        if(SipSession::GetInstance()->CallOutgoing("123", sip_dst)){
+            return;
+        }
+    }else{
+        printf(" DirectCall  not found payload\n");
+    }
+    SendCallResult(DB_Result_Failed);
+}
+
 
 void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
     printf("SendTunnelData size %d\n", size);
@@ -312,8 +336,6 @@ void CtrlProtocol::CloseVideoChannel(){
 }
 
 
-
-
 bool CtrlProtocol::openUdpSocket(){
     m_t21_socket = socket(AF_INET, SOCK_DGRAM, 0);
     if (m_t21_socket < 0) {
@@ -388,6 +410,9 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         break;
     case DB_CMD_Tunnel_Request:
         TunnelDataHandle(data);
+        break;
+    case DB_CMD_Direct_Call_Request:
+        DirectCall(data);
         break;
     default:
         break;

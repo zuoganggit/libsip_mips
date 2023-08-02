@@ -77,7 +77,7 @@ int main(int argc, char ** argv){
     }
 
     // this_thread::sleep_for(chrono::seconds(3));
-    // sipSessionPtr->CallOutgoing("3002");
+    // sipSessionPtr->CallOutgoing("3002", "192.168.101.17:60380");
     // this_thread::sleep_for(chrono::seconds(3));
     // sipSessionPtr->TerminateCalling();
     WaitForSignal();

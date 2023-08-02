@@ -44,7 +44,9 @@ typedef enum{
     DB_CMD_Call_Request = 0xF1,
     DB_CMD_Call_Result = 0xF2,
     DB_CMD_Tunnel_Request = 0x1E,
-    DB_CMD_Tunnel_Result = 0x1F
+    DB_CMD_Tunnel_Result = 0x1F,
+    DB_CMD_Direct_Call_Request = 0x40,
+    DB_CMD_Direct_Call_Result = 0x41
 }T21_Cmd_Type;
 
 
@@ -196,6 +198,19 @@ typedef struct{
     uint32_t	m_datalen;	    //透传数据的长度
     uint8_t	    m_data[0];	// 透传数据
 }T21_DB_CMD_Tunnel_Res_Payload;
+
+
+// DB_CMD_Direct_Call_Request = 0x40
+typedef struct{
+    uint8_t m_numtype; //0:号码;   1:ip地址
+    uint8_t	m_callnum[16];
+    uint32_t m_port;
+}T21_DB_CMD_Direct_Call_Req_Payload;
+
+//DB_CMD_Direct_Call_Result
+typedef struct{
+    uint32_t m_result;
+}T21_DB_CMD_Direct_Call_Res_Payload;
 
 #pragma pack()
 #endif

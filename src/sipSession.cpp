@@ -365,7 +365,7 @@ void SipSession::outCallAnswer(int did, int tid){
     if(sdp){
         char *str_sdp = NULL;
         sdp_message_to_str(sdp, &str_sdp);
-            
+        printf("str_sdp  %s\n", str_sdp);
         sdp_connection_t *audioCon = eXosip_get_audio_connection(sdp);
         string remote_audio_addr = audioCon->c_addr;
         sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
@@ -601,6 +601,7 @@ void SipSession::sipRun(){
                     }
                     break;
                 case EXOSIP_CALL_INVITE:
+                cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
                     if(m_AudioStream_ptr->IsOpened() || m_is_calling){
                         eXosip_call_send_answer(m_context_eXosip, event->tid, 
                             SIP_BUSY_HERE, NULL);
@@ -608,8 +609,13 @@ void SipSession::sipRun(){
                     }else{
                         m_is_calling = true;
                         osip_from_t * from = osip_message_get_from(event->request);
-                        m_remote_user = from->url->username;
-                        printf("!!!!!! remote  call user %s\n",from->url->username);
+                        if(from && from->url){
+                            char *from_str = nullptr;
+                            osip_uri_to_str(from->url, &from_str);
+                            m_call_to = from_str;
+                            if(from_str) free(from_str);
+                        }
+
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                         if(answer_sleep > 0){
                             eXosip_call_send_answer(m_context_eXosip, event->tid, 
@@ -673,7 +679,7 @@ void SipSession::sipRun(){
                         m_VideoStream_ptr->Close();
                         m_is_calling = false;
                     }
-                    m_remote_user.clear();
+
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
                     break;
                 case EXOSIP_CALL_RELEASED:
@@ -730,7 +736,6 @@ void SipSession::sipRun(){
 bool SipSession::Stop(){
     TerminateCalling();
     m_exited = true;
-    m_remote_user.clear();
     m_sip_run_future.wait();
     return true;
 }
@@ -751,12 +756,13 @@ void SipSession::SendTunnel(uint8_t *data, int size){
     osip_message_t *request = nullptr;
 
     string from = "sip:" + m_user_name + "@" + m_sip_server_domain;
-    if(!m_AudioStream_ptr->IsOpened() || m_remote_user.empty()){
+    if(!m_AudioStream_ptr->IsOpened()){
         printf(" must send in calling \n");
         eXosip_unlock(m_context_eXosip);
         return;
     }
-    string to = "sip:" + m_remote_user + "@" + m_sip_server_domain;
+
+    string to = m_call_to;
     int i = eXosip_message_build_request(m_context_eXosip, &request, "MESSAGE", 
         to.c_str(), from.c_str(), NULL);
     if(i != 0){
@@ -780,17 +786,29 @@ void SipSession::SendTunnel(uint8_t *data, int size){
 }
 
 
-bool SipSession::CallOutgoing(const string &toUser){
+
+bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
     if(m_is_calling || m_AudioStream_ptr->IsOpened()){
         cerr<<"is calling ,please close call"<<endl;
         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Talking);
         return false;
     }
+
+    string to;
+    string from;
+    
+    if(dst_addr.empty()){
+        to = "<sip:" + toUser + "@"+m_sip_server_domain+">";
+        from = "<sip:" + m_user_name + "@"+m_sip_server_domain+">";
+    }else{
+        to = "<sip:" + toUser + "@"+dst_addr+">";
+        from = "<sip:" + m_user_name + "@"+dst_addr+">";
+    }
+
     if(!m_exited){
         osip_message_t *invite;
         int cid;
-        string to = "<sip:" + toUser + "@"+m_sip_server_domain+">";
-        string from = "<sip:" + m_user_name + "@"+m_sip_server_domain+">";
+        
         int i = eXosip_call_build_initial_invite (m_context_eXosip, &invite, to.c_str(),
                                             from.c_str(),
                                             NULL, // optional route header
@@ -865,8 +883,9 @@ bool SipSession::CallOutgoing(const string &toUser){
     }
 
     printf("CallOutgoing ok\n");
-    m_remote_user = toUser;
     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
+    
+    m_call_to = to;
     return true;
 }
 int SipSession::TerminateCalling(){

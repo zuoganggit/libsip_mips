@@ -24,7 +24,7 @@ public:
     bool Stop();
 
     void SendTunnel(uint8_t *data, int size);
-    bool CallOutgoing(const string& toUser);
+    bool CallOutgoing(const string& toUser, const string  dst_addr = "");
     int TerminateCalling();
     bool GetRegStatus();
 
@@ -42,7 +42,11 @@ private:
     string m_sip_server_domain;
     string m_user_name;
     string m_password;
-    string m_remote_user;
+    // string m_remote_user;
+
+    // string m_call_from;
+    string m_call_to;
+
     bool m_exited;
     std::future<void> m_sip_run_future;
     int m_call_cid;
