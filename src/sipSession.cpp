@@ -236,8 +236,7 @@ bool SipSession::Start(){
     if(eXosip_add_authentication_info(m_context_eXosip, m_user_name.c_str(), 
         m_user_name.c_str(), m_password.c_str(), NULL, NULL) < 0){
         cout<<"eXosip_add_authentication_info fail"<<endl;
-        m_exited = true;
-        return false;
+        // return false;
     }
 
 
