@@ -315,6 +315,7 @@ bool ConfigServer::GetUserName(string& username){
     if(m_config_value.isMember("sip_config") && 
         m_config_value["sip_config"].isMember("user_name")){
         username = m_config_value["sip_config"]["user_name"].asString();
+        if(username.empty()) return false;
         return true;
     }
 
