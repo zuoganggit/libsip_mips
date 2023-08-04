@@ -1,5 +1,6 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #include <string.h>
 #include <unordered_map>
 #include <sstream>
@@ -197,6 +198,21 @@ SipSession::~SipSession()
 }
 
 bool SipSession::Start(){
+    struct addrinfo hints, *result;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_family = AF_INET;
+
+    int pos = m_sip_server_domain.find(":");
+    if(pos != string::npos){
+        printf("domain %s\n", m_sip_server_domain.substr(0, pos).c_str());
+        int err = getaddrinfo(m_sip_server_domain.substr(0, pos).c_str(), NULL, &hints, &result);
+        if(err != 0){
+            printf(" getaddrinfo %d,  %s\n", err, gai_strerror(err));
+            return false;
+        }
+    }
+
     if(isPortListening(sip_local_port)){
         cout<<"udp port "<<sip_local_port<<" has listening"<<endl;
         return false;
