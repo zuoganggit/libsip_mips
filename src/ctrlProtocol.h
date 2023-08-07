@@ -41,6 +41,7 @@ public:
     void SendTunnelData(uint8_t* data, int size);
 
     void DirectCall(T21_Data *data);
+    void AnswerCall(T21_Data *data);
     void Init();
 private:
     bool openUdpSocket();

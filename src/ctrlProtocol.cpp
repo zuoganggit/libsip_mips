@@ -181,6 +181,28 @@ void CtrlProtocol::DirectCall(T21_Data *data){
     SendCallResult(DB_Result_Failed);
 }
 
+void CtrlProtocol::AnswerCall(T21_Data *data){
+    T21_Data t21_data = {0};
+    t21_data.GroupCode = 0xDB;
+    t21_data.CommandID = htons(DB_CMD_Answer_Result);
+    t21_data.Version = 0x01;
+    t21_data.CommandFlag = htonl(0x12);
+    t21_data.TotalSegment = htons(0x01);
+    t21_data.SubSegment = htons(0x01);
+    t21_data.SegmentFlag = htons(0x01);
+    t21_data.Reserved1 = 0;
+    t21_data.Reserved2 = 0;
+    int buffer_size = sizeof(T21_Answer_Call_Res_Payload) + sizeof(T21_Data);
+
+    uint8_t * buffer = new uint8_t[buffer_size];
+    memcpy(buffer, &t21_data, sizeof(T21_Data));
+    T21_Answer_Call_Res_Payload resPayload = {htonl(DB_Result_Success)};
+    memcpy(buffer+sizeof(T21_Data), &resPayload, sizeof(T21_Call_Res_Payload));
+    sendto(m_t21_socket, buffer, buffer_size, 0, (struct sockaddr*)&m_destinationAddr, sizeof(m_destinationAddr));
+    delete[] buffer;
+    
+    SipSession::GetInstance()->Answer_call();
+}
 
 void CtrlProtocol::SendTunnelData(uint8_t* data, int size){
     printf("SendTunnelData size %d\n", size);
@@ -413,6 +435,9 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         break;
     case DB_CMD_Direct_Call_Request:
         DirectCall(data);
+        break;
+    case DB_CMD_Answer_Request:
+
         break;
     default:
         break;

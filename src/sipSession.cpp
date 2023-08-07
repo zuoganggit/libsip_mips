@@ -637,7 +637,9 @@ void SipSession::sipRun(){
                             eXosip_call_send_answer(m_context_eXosip, event->tid, 
                                 SIP_RINGING, NULL);
                             g_future = std::async(std::launch::async, [this, did, tid,answer_sleep](){
-                                this_thread::sleep_for(chrono::seconds(answer_sleep));
+                                // this_thread::sleep_for(chrono::seconds(answer_sleep));
+                                unique_lock<std::mutex> lock(this->m_call_mutex);
+                                this->m_call_condition.wait_for(lock, chrono::seconds(answer_sleep));
                                 eXosip_lock(this->m_context_eXosip);
                                 this->outCallAnswer(did, tid);
                                 eXosip_unlock(this->m_context_eXosip);
@@ -919,4 +921,8 @@ bool SipSession::GetRegStatus(){
 }
 void SipSession::openMutexCtl(int channel){
     m_CtrlProtocol_ptr->OpenMutex(channel);
+}
+
+void SipSession::Answer_call(){
+    m_call_condition.notify_one();
 }

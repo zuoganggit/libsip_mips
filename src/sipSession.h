@@ -5,6 +5,8 @@
 #include <iostream>
 #include <future>
 #include <memory>
+#include <condition_variable>
+#include <mutex>
 #include "rtpSession.h"
 #include "ctrlProtocol.h"
 #include "audioStream.h"
@@ -27,7 +29,7 @@ public:
     bool CallOutgoing(const string& toUser, const string  dst_addr = "");
     int TerminateCalling();
     bool GetRegStatus();
-
+    void Answer_call();
     void sip_prepend_route(osip_message_t *sip);
 private:
     void openMutexCtl(int channel);
@@ -61,6 +63,8 @@ private:
     shared_ptr<CtrlProtocol> m_CtrlProtocol_ptr;
     shared_ptr<AudioStream> m_AudioStream_ptr;
     shared_ptr<VideoStream> m_VideoStream_ptr;
+    mutex m_call_mutex;
+    condition_variable m_call_condition;
 };
 
 #endif

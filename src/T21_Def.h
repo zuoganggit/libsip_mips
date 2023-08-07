@@ -46,7 +46,9 @@ typedef enum{
     DB_CMD_Tunnel_Request = 0x1E,
     DB_CMD_Tunnel_Result = 0x1F,
     DB_CMD_Direct_Call_Request = 0x40,
-    DB_CMD_Direct_Call_Result = 0x41
+    DB_CMD_Direct_Call_Result = 0x41,
+    DB_CMD_Answer_Request = 0x42,
+    DB_CMD_Answer_Result = 0x43
 }T21_Cmd_Type;
 
 
@@ -126,6 +128,10 @@ typedef struct{
 typedef struct{
     uint32_t m_result;	    // 请求回应的状态码, 见Result_e
 }T21_Call_Res_Payload;
+
+typedef struct{
+    uint32_t m_result;	    // 请求回应的状态码, 见Result_e
+}T21_Answer_Call_Res_Payload;
 
 //CommandID:  DB_CMD_Query_RegStatus_Result
 typedef struct{
