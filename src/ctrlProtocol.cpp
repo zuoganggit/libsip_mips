@@ -437,7 +437,7 @@ void CtrlProtocol::t21CmdHandle(T21_Data *data){
         DirectCall(data);
         break;
     case DB_CMD_Answer_Request:
-
+        AnswerCall(data);
         break;
     default:
         break;
