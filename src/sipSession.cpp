@@ -616,8 +616,11 @@ void SipSession::sipRun(){
                         register_fail_count = 0;
                     }
                     break;
+		        case EXOSIP_CALL_RINGING:
+		            m_call_did = event->did;
+		            break;
                 case EXOSIP_CALL_INVITE:
-                cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+                    cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
                     if(m_AudioStream_ptr->IsOpened() || m_is_calling){
                         eXosip_call_send_answer(m_context_eXosip, event->tid, 
                             SIP_BUSY_HERE, NULL);
@@ -633,6 +636,7 @@ void SipSession::sipRun(){
                         }
 
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
+			            m_call_did = event->did;
                         if(answer_sleep > 0){
                             eXosip_call_send_answer(m_context_eXosip, event->tid, 
                                 SIP_RINGING, NULL);
@@ -641,7 +645,9 @@ void SipSession::sipRun(){
                                 unique_lock<std::mutex> lock(this->m_call_mutex);
                                 this->m_call_condition.wait_for(lock, chrono::seconds(answer_sleep));
                                 eXosip_lock(this->m_context_eXosip);
-                                this->outCallAnswer(did, tid);
+                                if(m_is_calling){
+                                    this->outCallAnswer(did, tid);
+                                }
                                 eXosip_unlock(this->m_context_eXosip);
                             });
                             break;
@@ -696,6 +702,7 @@ void SipSession::sipRun(){
                         m_AudioStream_ptr->Close();
                         m_VideoStream_ptr->Close();
                         m_is_calling = false;
+			            m_call_did = 0;
                     }
 
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
@@ -898,6 +905,7 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
             m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
             return false;
         }
+	    m_call_cid = cid;
     }
 
     printf("CallOutgoing ok\n");
@@ -913,6 +921,7 @@ int SipSession::TerminateCalling(){
     m_AudioStream_ptr->Close();
     m_VideoStream_ptr->Close();
     m_is_calling = false;
+    m_call_condition.notify_one();
     return 0;
 }
 
