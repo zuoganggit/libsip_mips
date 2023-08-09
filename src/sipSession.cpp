@@ -710,6 +710,9 @@ void SipSession::sipRun(){
                 case EXOSIP_CALL_RELEASED:
 
                     break;
+                case EXOSIP_CALL_CANCELLED:
+                    TerminateCalling();
+                    break;
                 case EXOSIP_MESSAGE_REQUESTFAILURE:
                     eXosip_default_action(m_context_eXosip, event);
                     break;
@@ -915,9 +918,9 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
     return true;
 }
 int SipSession::TerminateCalling(){
-    eXosip_lock(m_context_eXosip);
+    // eXosip_lock(m_context_eXosip);
     eXosip_call_terminate(m_context_eXosip, m_call_cid, m_call_did);
-    eXosip_unlock(m_context_eXosip);
+    // eXosip_unlock(m_context_eXosip);
     m_AudioStream_ptr->Close();
     m_VideoStream_ptr->Close();
     m_is_calling = false;
