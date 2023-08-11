@@ -576,7 +576,7 @@ void SipSession::sipRun(){
     int answer_sleep = ConfigServer::GetInstance()->GetAnwserSleep();
     while(!m_exited){
         if(tt % 30 == 0){
-            eXosip_lock(m_context_eXosip);
+            // eXosip_lock(m_context_eXosip);
             if(rid > 0){
                 eXosip_register_remove(m_context_eXosip, rid);
             }
@@ -589,7 +589,7 @@ void SipSession::sipRun(){
                 sip_prepend_route(reg);
                 eXosip_register_send_register(m_context_eXosip, rid, reg);
             }
-            eXosip_unlock(m_context_eXosip);
+            // eXosip_unlock(m_context_eXosip);
         }
 
         tt++;
@@ -600,7 +600,10 @@ void SipSession::sipRun(){
         if(event){
             eXosip_lock(m_context_eXosip);
             eXosip_automatic_action(m_context_eXosip);
-            // cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+            if(event->type != EXOSIP_REGISTRATION_SUCCESS && event->type != EXOSIP_REGISTRATION_FAILURE){
+                cout<<"SIP EVENT "<<event->textinfo<<" type "<< event->type<<endl;
+            }
+            
             // cout<<"event did "<<event->did<<endl;
             int did = event->did;
             int tid = event->tid;
@@ -635,29 +638,32 @@ void SipSession::sipRun(){
                             if(from_str) free(from_str);
                         }
 
-                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
+                        
 			            m_call_did = event->did;
                         if(answer_sleep > 0){
                             eXosip_call_send_answer(m_context_eXosip, event->tid, 
                                 SIP_RINGING, NULL);
+                            
                             g_future = std::async(std::launch::async, [this, did, tid,answer_sleep](){
                                 // this_thread::sleep_for(chrono::seconds(answer_sleep));
+                                this->m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                                 unique_lock<std::mutex> lock(this->m_call_mutex);
                                 this->m_call_condition.wait_for(lock, chrono::seconds(answer_sleep));
-                                eXosip_lock(this->m_context_eXosip);
                                 if(m_is_calling){
+                                    eXosip_lock(this->m_context_eXosip);
                                     this->outCallAnswer(did, tid);
+                                    eXosip_unlock(this->m_context_eXosip);
                                 }
-                                eXosip_unlock(this->m_context_eXosip);
                             });
                             break;
                         }
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                         outCallAnswer(did, tid);
                     }
                     break;
                 case EXOSIP_CALL_REINVITE:
-                    // AudioStream::GetInstance()->Close();
-                    // VideoStream::GetInstance()->Close();
+                    AudioStream::GetInstance()->Close();
+                    VideoStream::GetInstance()->Close();
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                     outCallAnswer(did, tid);
                     break;
@@ -695,22 +701,33 @@ void SipSession::sipRun(){
                 case EXOSIP_CALL_PROCEEDING:
                     break;
                 case EXOSIP_CALL_ANSWERED:
-                    callAckAnswered(event);
+                    if(m_is_calling){
+                        callAckAnswered(event);
+                    }
                     break;
+                
+                case EXOSIP_CALL_RELEASED:
+
                 case EXOSIP_CALL_CLOSED:
                     if(event->did == m_call_did){
                         m_AudioStream_ptr->Close();
                         m_VideoStream_ptr->Close();
-                        m_is_calling = false;
 			            m_call_did = 0;
+                        if(m_is_calling){
+                            m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
+                        }
+                        m_is_calling = false;
                     }
-
-                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
                     break;
-                case EXOSIP_CALL_RELEASED:
-
-                    break;
+                
                 case EXOSIP_CALL_CANCELLED:
+                    // ret = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
+                    // if(ret == 0){
+                    //     eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
+                    // }
+                    if(event->did == m_call_did){
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
+                    }
                     TerminateCalling();
                     break;
                 case EXOSIP_MESSAGE_REQUESTFAILURE:
@@ -915,9 +932,13 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
     
     m_call_to = to;
+    m_is_calling = true;
     return true;
 }
 int SipSession::TerminateCalling(){
+    cout<<"!!!!!! TerminateCalling"<<endl;
+    this_thread::sleep_for(chrono::milliseconds(20));
+
     // eXosip_lock(m_context_eXosip);
     eXosip_call_terminate(m_context_eXosip, m_call_cid, m_call_did);
     // eXosip_unlock(m_context_eXosip);
