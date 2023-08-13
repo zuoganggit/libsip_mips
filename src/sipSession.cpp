@@ -282,7 +282,9 @@ void SipSession::callAckAnswered(eXosip_event_t *event){
             
             char *str_sdp = NULL;
             sdp_message_to_str(sdp, &str_sdp);
-
+            if(str_sdp){
+                printf("sdp %s\n", str_sdp);
+            }
             sdp_connection_t *audioCon = eXosip_get_audio_connection(sdp);
             string remote_audio_addr = audioCon->c_addr;
             sdp_media_t * audioMedia = eXosip_get_audio_media(sdp);
@@ -720,12 +722,21 @@ void SipSession::sipRun(){
                     }
                     break;
                 
+                case EXOSIP_CALL_GLOBALFAILURE:
+                    m_AudioStream_ptr->Close();
+                    m_VideoStream_ptr->Close();
+                    m_call_did = 0;
+                    if(m_is_calling){
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
+                    }
+                    m_is_calling = false;     
+                    break;
                 case EXOSIP_CALL_CANCELLED:
                     // ret = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
                     // if(ret == 0){
                     //     eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
                     // }
-                    if(event->did == m_call_did){
+                    if(event->did == m_call_did || m_call_did == 0){
                         m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
                     }
                     TerminateCalling();

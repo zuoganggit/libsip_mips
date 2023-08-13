@@ -16,7 +16,7 @@ public:
     void Open(FrameCallback callback, AudioEncodeType_e in_type, AudioEncodeType_e out_type);
     bool IsOpened();
     void Close();
-    void WriteAudioFrame(uint8_t* data, int dataSize);
+    void WriteAudioFrame(uint8_t* data, int dataSize, AudioEncodeType_e type = ET_G711U);
 private:
     void run_test();
     void run();

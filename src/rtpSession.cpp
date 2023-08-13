@@ -370,7 +370,13 @@ void RtpSession::run(){
                         m_is_talk = true;
                     }
                 }
-                m_audio_ptr->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader));
+
+                AudioEncodeType_e type = ET_G711U;
+                if(payloadType == 8){
+                    type = ET_G711A;
+                }
+                // printf(" audio rtp type %d,  AudioEncodeType_e %d\n", payloadType, type);
+                m_audio_ptr->WriteAudioFrame(payload, bytesRead-sizeof(RTPHeader), type);
             }
         }
     }

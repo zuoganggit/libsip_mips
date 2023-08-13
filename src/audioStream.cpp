@@ -125,7 +125,8 @@ void AudioStream::Close(){
     m_stream_run_future.wait();
     m_frame_callback = nullptr;
 }
-void AudioStream::WriteAudioFrame(uint8_t* data, int dataSize){
+
+void AudioStream::WriteAudioFrame(uint8_t* data, int dataSize, AudioEncodeType_e type){
     // cout<<"WriteAudioFrame dataSize "<<dataSize<<endl;
     T21_Data t21_data = {0};
     t21_data.GroupCode = 0xDB;
@@ -137,9 +138,9 @@ void AudioStream::WriteAudioFrame(uint8_t* data, int dataSize){
     t21_data.SegmentFlag = htons(0x01);
     t21_data.Reserved1 = 0;
     t21_data.Reserved2 = 0;
-
+    //m_inEncodeType
     T21_Send_Media_ReqEx_Payload t21payload = {htonl(1), htonl(1),
-        0, m_inEncodeType, htonl(dataSize)};
+        0, type, htonl(dataSize)};
     
     int buffer_size = sizeof(T21_Data) + sizeof(T21_Send_Media_ReqEx_Payload) + dataSize;
     uint8_t * buffer = new uint8_t[buffer_size];
