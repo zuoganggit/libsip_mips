@@ -269,8 +269,8 @@ bool SipSession::Start(){
 
 void SipSession::callAckAnswered(eXosip_event_t *event){
     osip_message_t *ack;
-    if (0 == eXosip_call_build_ack(m_context_eXosip, event->did, &ack)){
-        eXosip_call_send_ack(m_context_eXosip, event->did, ack);
+    if (0 == eXosip_call_build_ack(m_context_eXosip, event->tid, &ack)){
+        eXosip_call_send_ack(m_context_eXosip, event->tid, ack);
         sdp_message_t * sdp = eXosip_get_remote_sdp(m_context_eXosip, event->did);
         Codec audioCodec = G711U;
         string audioStr = "PCMU";
@@ -338,7 +338,7 @@ void SipSession::callAckAnswered(eXosip_event_t *event){
             string remote_video_addr = audioCon->c_addr;
             sdp_media_t * videoMedia = eXosip_get_video_media(sdp);
             m_call_did = event->did;
-            if(videoMedia){
+            if(videoMedia && atoi(videoMedia->m_port) > 0){
                 string remoteVideoPort = videoMedia->m_port;
 
                 char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
@@ -380,6 +380,7 @@ void SipSession::outCallAnswer(int did, int tid){
     string audioStr = "PCMU";
     int audioPayloadType = 0;
     int telePayloadType = 101;
+    int remote_video_port = 0;
     if(sdp){
         char *str_sdp = NULL;
         sdp_message_to_str(sdp, &str_sdp);
@@ -435,7 +436,9 @@ void SipSession::outCallAnswer(int did, int tid){
         sdp_connection_t *videoCon = eXosip_get_video_connection(sdp);
         string remote_video_addr = audioCon->c_addr;
         sdp_media_t * videoMedia = eXosip_get_video_media(sdp);
-        if(videoMedia){
+        
+        if(videoMedia && atoi(videoMedia->m_port) > 0){
+            remote_video_port = atoi(videoMedia->m_port);
             string remoteVideoPort = videoMedia->m_port;
             
             char *payloads = (char *)osip_list_get(&videoMedia->m_payloads, 0);
@@ -462,8 +465,26 @@ void SipSession::outCallAnswer(int did, int tid){
     }else{
         strcpy(localip, m_local_ip.c_str());
     }
-    
 
+    char video_tmp[1024] = {0};
+    if(remote_video_port > 0)
+    {
+        snprintf(video_tmp, 1024, 
+        "m=video %d RTP/AVP %d\r\n"
+        "a=rtpmap:%d H264/90000\r\n"
+        "a=fmtp:%d packetization-mode=1\r\n"
+        // "a=ssrc:16909060\r\n"
+        // profile-level-id=428015
+        "a=sendrecv\r\n"
+        , m_video_rtp_local_port, 
+        video_rtp_type, video_rtp_type, video_rtp_type);
+    }else{
+        snprintf(video_tmp, 1024, 
+        "m=video 0 RTP/AVP 0\r\n"
+        "a=label:11\r\n"
+        "a=content:main\r\n"
+        );
+    }
     snprintf (tmp, 4096,
             "v=0\r\n"
             "o=jack 0 0 IN IP4 %s\r\n"
@@ -479,19 +500,20 @@ void SipSession::outCallAnswer(int did, int tid){
             "a=rtpmap:%d telephone-event/8000\r\n"
             "a=fmtp:%d 0-16\r\n"
             "a=sendrecv\r\n"
-            "m=video %d RTP/AVP %d\r\n"
-            "a=rtpmap:%d H264/90000\r\n"
-            "a=fmtp:%d packetization-mode=1\r\n"
-            // "a=ssrc:16909060\r\n"
-            // profile-level-id=428015
-            "a=sendrecv\r\n"
+            "%s"
+            // "m=video %d RTP/AVP %d\r\n"
+            // "a=rtpmap:%d H264/90000\r\n"
+            // "a=fmtp:%d packetization-mode=1\r\n"
+            // // "a=ssrc:16909060\r\n"
+            // // profile-level-id=428015
+            // "a=sendrecv\r\n"
             // "a=ptime:40 \r\n"
             , localip, localip, 
                 m_audio_rtp_local_port,
                 audioPayloadType, audioPayloadType, audioStr.c_str(),
-                telePayloadType, telePayloadType,
-                m_video_rtp_local_port, 
-                video_rtp_type, video_rtp_type, video_rtp_type);
+                telePayloadType, telePayloadType, video_tmp);
+                // m_video_rtp_local_port, 
+                // video_rtp_type, video_rtp_type, video_rtp_type);
 
     osip_message_set_body (answer, tmp, strlen (tmp));
     osip_message_set_content_type (answer, "application/sdp");
@@ -664,13 +686,17 @@ void SipSession::sipRun(){
                     }
                     break;
                 case EXOSIP_CALL_REINVITE:
-                    AudioStream::GetInstance()->Close();
-                    VideoStream::GetInstance()->Close();
+                    // AudioStream::GetInstance()->Close();
+                    // VideoStream::GetInstance()->Close();
                     m_CtrlProtocol_ptr->SendCallResult(DB_Result_Calling);
                     outCallAnswer(did, tid);
                     break;
                 case EXOSIP_CALL_REQUESTFAILURE:
-                    m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
+                    // m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
+                    if(event->did == m_call_did || m_call_did == 0){
+                        m_CtrlProtocol_ptr->SendCallResult(DB_Result_HangUp);
+                    }
+                    TerminateCalling();
                     break;
                 case EXOSIP_CALL_MESSAGE_NEW:
                     osip_message_get_body(event->request, 0, &body);
@@ -709,7 +735,7 @@ void SipSession::sipRun(){
                     break;
                 
                 case EXOSIP_CALL_RELEASED:
-
+                    break;
                 case EXOSIP_CALL_CLOSED:
                     if(event->did == m_call_did){
                         m_AudioStream_ptr->Close();
@@ -862,6 +888,7 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
     }
 
     if(!m_exited){
+        eXosip_lock(m_context_eXosip);
         osip_message_t *invite;
         int cid;
         
@@ -873,6 +900,7 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
         {
             printf("eXosip_call_build_initial_invite fail\n");
             m_CtrlProtocol_ptr->SendCallResult(DB_Result_Failed);
+            eXosip_unlock(m_context_eXosip);
             return false;
         }
 
@@ -927,7 +955,7 @@ bool SipSession::CallOutgoing(const string &toUser, const string  dst_addr){
         osip_message_set_body (invite, tmp, strlen(tmp));
         osip_message_set_content_type (invite, "application/sdp");
 
-        eXosip_lock(m_context_eXosip);
+        // eXosip_lock(m_context_eXosip);
         sip_prepend_route(invite);
         cid = eXosip_call_send_initial_invite (m_context_eXosip, invite);
         eXosip_unlock(m_context_eXosip);
