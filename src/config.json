@@ -5,6 +5,7 @@
         "password":"1234",                   //密码
         "reg_expires":1800,                  //注册有效期
         "reg_period":30,                     //注册周期
+        "enable_tcp":true,   //false
         "sip_proxy":{
             "addr":"",
             "port":5060,

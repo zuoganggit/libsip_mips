@@ -60,6 +60,10 @@ void ConfigServer::loadConfig(){
             m_sipConfig.m_sip_period = value["sip_config"]["reg_period"].asInt();
         }
 
+        if(value["sip_config"].isMember("enable_tcp")){
+            m_sipConfig.m_is_tcp = value["sip_config"]["enable_tcp"].asBool();
+        }
+
         if(value["sip_config"].isMember("sip_outcall_account")){
             Json::Value accounts = m_config_value["sip_config"]["sip_outcall_account"];
              if(accounts.isArray()){
@@ -460,3 +464,7 @@ bool ConfigServer::GetSipProxy(SipProxy& proxy){
     proxy = m_sipConfig.m_proxy;
     return true;
 }
+
+bool  ConfigServer::GetEnableSipTcp(){
+    return m_sipConfig.m_is_tcp;
+}   

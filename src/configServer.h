@@ -21,6 +21,7 @@ typedef struct{
     string m_sip_password;
     int m_sip_expires;
     int m_sip_period;
+    bool m_is_tcp;
     vector<string> m_out_accounts;
     SipProxy m_proxy;
     int m_anwer_sleep;
@@ -70,6 +71,7 @@ public:
     // bool SaveAccountConfig(Json::Value& value, bool syncFile=true);
     // bool SaveCodecConfig(Json::Value& value, bool syncFile=true);
     
+    bool  GetEnableSipTcp();
     string GetSipConfigString();
     string GetNetConfigString();
     string GetAudioCodecConfigString();

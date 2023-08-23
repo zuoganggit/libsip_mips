@@ -235,9 +235,15 @@ bool SipSession::Start(){
     eXosip_set_user_agent(m_context_eXosip, "mips_sipper");
     string laddr = "0.0.0.0";
     ConfigServer::GetInstance()->GetLocalAddr(laddr);
-    if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
+    int trans_type = IPPROTO_UDP;
+
+    if(ConfigServer::GetInstance()->GetEnableSipTcp()){
+        trans_type = IPPROTO_TCP;
+    }
+
+    if(eXosip_listen_addr(m_context_eXosip, trans_type, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
         cout<<"eXosip_listen_addr fail"<<endl;
-        if(eXosip_listen_addr(m_context_eXosip, IPPROTO_UDP, NULL, sip_local_port, AF_INET, 0) != 0){
+        if(eXosip_listen_addr(m_context_eXosip, trans_type, NULL, sip_local_port, AF_INET, 0) != 0){
             cout<<"eXosip_listen_addr fail, SipSession start fail"<<endl;
             return false;
         }
