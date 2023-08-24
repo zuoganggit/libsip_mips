@@ -237,8 +237,11 @@ bool SipSession::Start(){
     ConfigServer::GetInstance()->GetLocalAddr(laddr);
     int trans_type = IPPROTO_UDP;
 
+    int optval = 1;
+    eXosip_set_option(m_context_eXosip, EXOSIP_OPT_AUTO_MASQUERADE_CONTACT, &optval);
     if(ConfigServer::GetInstance()->GetEnableSipTcp()){
         trans_type = IPPROTO_TCP;
+        eXosip_set_option(m_context_eXosip, EXOSIP_OPT_ENABLE_REUSE_TCP_PORT, &optval);
     }
 
     if(eXosip_listen_addr(m_context_eXosip, trans_type, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
@@ -251,8 +254,10 @@ bool SipSession::Start(){
         m_local_ip = laddr;
     }
 
-    int optval = 1;
-    eXosip_set_option(m_context_eXosip, EXOSIP_OPT_AUTO_MASQUERADE_CONTACT, &optval);
+    // int optval = 1;
+    // eXosip_set_option(m_context_eXosip, EXOSIP_OPT_AUTO_MASQUERADE_CONTACT, &optval);
+    //EXOSIP_OPT_USE_RPORT
+    // eXosip_set_option(m_context_eXosip, EXOSIP_OPT_ENABLE_REUSE_TCP_PORT, &optval);
 
     cout<<"authentication_info user "<< m_user_name << " password "<<m_password<<endl;
     if(eXosip_add_authentication_info(m_context_eXosip, m_user_name.c_str(), 
