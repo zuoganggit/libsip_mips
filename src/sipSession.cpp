@@ -242,6 +242,8 @@ bool SipSession::Start(){
     if(ConfigServer::GetInstance()->GetEnableSipTcp()){
         trans_type = IPPROTO_TCP;
         eXosip_set_option(m_context_eXosip, EXOSIP_OPT_ENABLE_REUSE_TCP_PORT, &optval);
+        // int val=10000;
+	    // eXosip_set_option(m_context_eXosip, EXOSIP_OPT_KEEP_ALIVE_OPTIONS_METHOD, (void*)&val);
     }
 
     if(eXosip_listen_addr(m_context_eXosip, trans_type, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
@@ -609,14 +611,18 @@ void SipSession::sipRun(){
     int open_mutex_channel = -1;
     int register_fail_count = 0;
     int answer_sleep = ConfigServer::GetInstance()->GetAnwserSleep();
+    int reg_time = 30;
+    if(ConfigServer::GetInstance()->GetEnableSipTcp()){
+        reg_time = 10;
+    }
     while(!m_exited){
-        if(tt % 30 == 0){
+        if(tt % reg_time == 0){
             // eXosip_lock(m_context_eXosip);
             if(rid > 0){
                 eXosip_register_remove(m_context_eXosip, rid);
             }
             
-            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), to.c_str(), NULL, 1800, &reg);
+            rid = eXosip_register_build_initial_register(m_context_eXosip, from.c_str(), to.c_str(), NULL, 180, &reg);
             if (rid < 0)
             {
                 printf("eXosip_register_build_initial_register fail %d\n", rid);
@@ -728,14 +734,15 @@ void SipSession::sipRun(){
                                 open_mutex_channel = std::atoi(signalValue.c_str());
                             }                            
                         }
+
+                        ret = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
+                        if(ret == 0){
+                            eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
+                        }else{
+                            printf("eXosip_call_build_answer error %s\n", osip_strerror(ret));
+                        }
                     }
 
-                    ret = eXosip_call_build_answer(m_context_eXosip, event->tid, 200, &answer);
-                    if(ret == 0){
-                        eXosip_call_send_answer(m_context_eXosip, event->tid, 200, answer);
-                    }else{
-                        printf("eXosip_call_build_answer error %s\n", osip_strerror(ret));
-                    }
                     break;
                 case EXOSIP_CALL_PROCEEDING:
                     break;
