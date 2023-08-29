@@ -244,6 +244,7 @@ bool SipSession::Start(){
         eXosip_set_option(m_context_eXosip, EXOSIP_OPT_ENABLE_REUSE_TCP_PORT, &optval);
         // int val=10000;
 	    // eXosip_set_option(m_context_eXosip, EXOSIP_OPT_KEEP_ALIVE_OPTIONS_METHOD, (void*)&val);
+        eXosip_set_option(m_context_eXosip, EXOSIP_OPT_ENABLE_OUTBOUND, (void*)&optval);
     }
 
     if(eXosip_listen_addr(m_context_eXosip, trans_type, laddr.c_str(), sip_local_port, AF_INET, 0) != 0){
@@ -612,9 +613,9 @@ void SipSession::sipRun(){
     int register_fail_count = 0;
     int answer_sleep = ConfigServer::GetInstance()->GetAnwserSleep();
     int reg_time = 30;
-    if(ConfigServer::GetInstance()->GetEnableSipTcp()){
-        reg_time = 10;
-    }
+    // if(ConfigServer::GetInstance()->GetEnableSipTcp()){
+    //     reg_time = 10;
+    // }
     while(!m_exited){
         if(tt % reg_time == 0){
             // eXosip_lock(m_context_eXosip);
